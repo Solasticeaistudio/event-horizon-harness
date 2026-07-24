@@ -237,6 +237,7 @@ def _guardian_result(value: Any, request: ActionRequest) -> dict[str, Any]:
         raise ProtocolError('guardian_quorum', 'guardian decisions are missing')
     required = REQUIRED_GUARDIANS
     names: set[str] = set()
+    static_decision: dict[str, Any] | None = None
     for decision in decisions:
         _exact(
             decision,
@@ -247,9 +248,19 @@ def _guardian_result(value: Any, request: ActionRequest) -> dict[str, Any]:
             raise ProtocolError('guardian_decision', 'guardian decision types are invalid')
         if decision['request_digest'] != request.request_digest:
             raise ProtocolError('guardian_request', 'guardian decision request mismatch')
+        if decision['guardian'] in names:
+            raise ProtocolError('guardian_quorum', 'duplicate guardian decision')
         names.add(decision['guardian'])
+        if decision['guardian'] == STATIC_POLICY_GUARDIAN:
+            static_decision = decision
     if not required.issubset(names):
         raise ProtocolError('guardian_quorum', 'required guardian decision is missing')
+    if static_decision is None or static_decision['evidence'].get('policy_digest') != result['policy_digest']:
+        raise ProtocolError('policy_digest', 'static policy decision version mismatch')
+    for decision in decisions:
+        reported_policy = decision['evidence'].get('policy_digest')
+        if reported_policy is not None and reported_policy != result['policy_digest']:
+            raise ProtocolError('policy_digest', 'guardian policy versions are inconsistent')
     if result['allowed'] is not all(decision['allowed'] for decision in decisions):
         raise ProtocolError('guardian_quorum', 'guardian aggregate is inconsistent')
     return result

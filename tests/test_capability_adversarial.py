@@ -202,7 +202,10 @@ class CapabilityAdversarialTests(unittest.TestCase):
 
         decisions = GuardianQuorum([SwappedGuardian(), StaleGuardian()]).evaluate(self.request)
         self.assertTrue(all(not decision.allowed for decision in decisions))
-        self.assertTrue(all("binding mismatch" in decision.reason for decision in decisions))
+        self.assertEqual(
+            sum("binding or schema mismatch" in decision.reason for decision in decisions),
+            2,
+        )
 
     def test_fixed_public_vectors_match_their_expected_results(self):
         vector_dir = Path(__file__).resolve().parents[1] / "test-vectors"

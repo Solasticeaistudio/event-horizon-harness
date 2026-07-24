@@ -38,6 +38,8 @@ Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes 
 
 The capability commits to request ID and digest, session and agent, operation/resource/arguments, executor and device ID, image/measurement digest, Executor Attestation bundle and result digests, verifier-policy digest, static-policy digest, signer key ID, expiry, one-use invocation count, and maximum output bytes.
 
+Guardian combination is unanimity with mandatory identities, not majority voting. Response schemas, guardian identity, request digest, and policy version are checked independently of response order. Any missing, duplicate, stale, malformed, timed-out, crashed, or inconsistent response is a veto. See [GUARDIAN_QUORUM.md](GUARDIAN_QUORUM.md).
+
 ## Trusted computing base inventory
 
 | Component | Trusted for | Explicitly lacks |

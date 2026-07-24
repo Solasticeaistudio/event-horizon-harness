@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import time
+import queue
+import threading
 from dataclasses import dataclass, field
-from typing import Iterable, Protocol
+from typing import Iterable, Mapping, Protocol
 
 from .attestation import AttestationError, AttestationProvider
 from .component_ids import (
@@ -10,6 +11,7 @@ from .component_ids import (
     EXECUTOR_ATTESTATION_GUARDIAN,
     LINEAGE_BUDGET_GUARDIAN,
     STATIC_POLICY_GUARDIAN,
+    REQUIRED_GUARDIANS,
 )
 from .models import ActionRequest, GuardianDecision
 from .policy import StaticPolicy
@@ -123,31 +125,129 @@ class SequenceGuardian:
 @dataclass
 class GuardianQuorum:
     guardians: Iterable[Guardian]
+    guardian_timeout_seconds: float = 2.0
+
+    def __post_init__(self) -> None:
+        self.guardians = list(self.guardians)
+        if not 0 < self.guardian_timeout_seconds <= 30:
+            raise ValueError("guardian timeout must be greater than zero and at most 30 seconds")
+
+    def _evaluate_one(self, guardian: Guardian, request: ActionRequest) -> GuardianDecision:
+        guardian_name = getattr(guardian, "name", "malformed-guardian")
+        outcome: queue.Queue[tuple[bool, object]] = queue.Queue(maxsize=1)
+
+        def invoke() -> None:
+            try:
+                outcome.put((True, guardian.evaluate(request)), block=False)
+            except Exception as exc:
+                outcome.put((False, exc), block=False)
+
+        worker = threading.Thread(target=invoke, daemon=True, name=f"guardian-{guardian_name}")
+        worker.start()
+        worker.join(self.guardian_timeout_seconds)
+        if worker.is_alive():
+            return GuardianDecision(
+                guardian_name,
+                False,
+                "guardian timed out",
+                request_digest=request.request_digest,
+            )
+        try:
+            completed, value = outcome.get_nowait()
+        except queue.Empty:
+            return GuardianDecision(
+                guardian_name,
+                False,
+                "guardian returned no decision",
+                request_digest=request.request_digest,
+            )
+        if not completed:
+            return GuardianDecision(
+                guardian_name,
+                False,
+                "guardian failed closed",
+                request_digest=request.request_digest,
+            )
+        if (
+            not isinstance(value, GuardianDecision)
+            or value.guardian != guardian_name
+            or type(value.allowed) is not bool
+            or not isinstance(value.reason, str)
+            or not value.reason
+            or not isinstance(value.evidence, Mapping)
+            or value.request_digest != request.request_digest
+        ):
+            return GuardianDecision(
+                guardian_name,
+                False,
+                "guardian response binding or schema mismatch",
+                request_digest=request.request_digest,
+            )
+        return value
+
+    def _expected_policy_digest(self) -> str | None:
+        for guardian in self.guardians:
+            if getattr(guardian, "name", None) == STATIC_POLICY_GUARDIAN:
+                policy = getattr(guardian, "policy", None)
+                candidate = getattr(policy, "policy_digest", None)
+                if isinstance(candidate, str):
+                    return candidate
+        return None
 
     def evaluate(self, request: ActionRequest) -> list[GuardianDecision]:
-        decisions: list[GuardianDecision] = []
-        for guardian in self.guardians:
-            try:
-                decision = guardian.evaluate(request)
-            except Exception:
-                decision = GuardianDecision(
-                    guardian.name,
+        decisions = [self._evaluate_one(guardian, request) for guardian in list(self.guardians)]
+        present = {decision.guardian for decision in decisions}
+        for missing in sorted(REQUIRED_GUARDIANS - present):
+            decisions.append(GuardianDecision(
+                missing,
+                False,
+                "required guardian is unavailable",
+                request_digest=request.request_digest,
+            ))
+
+        expected_policy_digest = self._expected_policy_digest()
+        seen: set[str] = set()
+        for index, decision in enumerate(decisions):
+            reported_policy = decision.evidence.get("policy_digest")
+            inconsistent_policy = (
+                decision.guardian == STATIC_POLICY_GUARDIAN
+                and decision.allowed
+                and (expected_policy_digest is None or reported_policy != expected_policy_digest)
+            ) or (
+                reported_policy is not None
+                and expected_policy_digest is not None
+                and reported_policy != expected_policy_digest
+            )
+            if decision.guardian in seen or inconsistent_policy:
+                decisions[index] = GuardianDecision(
+                    decision.guardian,
                     False,
-                    "guardian failed closed",
+                    "duplicate guardian or inconsistent policy version",
                     request_digest=request.request_digest,
                 )
-            if decision.guardian != guardian.name or decision.request_digest != request.request_digest:
-                decision = GuardianDecision(
-                    guardian.name,
-                    False,
-                    "guardian response binding mismatch",
-                    request_digest=request.request_digest,
-                )
-            decisions.append(decision)
+            seen.add(decision.guardian)
         # Any veto blocks. Approvals cannot widen the static request.
         return decisions
 
-    @staticmethod
-    def allowed(decisions: Iterable[GuardianDecision]) -> bool:
+    def allowed(self, decisions: Iterable[GuardianDecision]) -> bool:
         decisions = list(decisions)
-        return bool(decisions) and all(decision.allowed for decision in decisions)
+        names = [decision.guardian for decision in decisions]
+        request_digests = {decision.request_digest for decision in decisions}
+        expected_policy_digest = self._expected_policy_digest()
+        static_decisions = [
+            decision for decision in decisions if decision.guardian == STATIC_POLICY_GUARDIAN
+        ]
+        return (
+            bool(decisions)
+            and len(names) == len(set(names))
+            and REQUIRED_GUARDIANS.issubset(names)
+            and len(request_digests) == 1
+            and all(decision.allowed for decision in decisions)
+            and len(static_decisions) == 1
+            and expected_policy_digest is not None
+            and static_decisions[0].evidence.get("policy_digest") == expected_policy_digest
+            and all(
+                decision.evidence.get("policy_digest", expected_policy_digest) == expected_policy_digest
+                for decision in decisions
+            )
+        )

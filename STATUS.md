@@ -29,6 +29,9 @@
 - Made request arguments recursively immutable and required the signer and executor verifier to reconstruct request and argument digests independently.
 - Added strict Ed25519 envelope, key-identity, signature-encoding, integer-time, exclusive-expiration, clock-skew, and atomic replay checks.
 - Added eight fixed public capability vectors and adversarial tests for parser disagreement, substitution, mutation, replay, and TOCTOU behavior.
+- Enforced required guardian identities, one response per guardian, canonical request binding, and consistent static-policy versions.
+- Converted guardian exceptions, malformed responses, missing responses, and timeouts into explicit veto decisions.
+- Added compromise-injection coverage and exact unanimity/veto semantics documentation.
 
 ## Tests executed
 
@@ -43,6 +46,7 @@
 - Nonce-authority regression: 34 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 36 Python tests passed.
 - Fresh-attestation regression: 42 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 37 Python tests passed.
 - Capability hardening regression: 51 Python tests passed, including all 8 fixed public vectors.
+- Guardian compromise regression: 60 Python tests passed.
 
 ## Known failures
 
@@ -85,7 +89,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Inject guardian compromise, malformed responses, timeouts, crashes, replay, and inconsistent-policy failures.
+Add public security, disclosure, contribution, red-team, citation, changelog, license, and limitations documents.
 
 ## Exact next command
 
