@@ -16,6 +16,9 @@
 - Added an independently verifiable, explicitly non-claiming certificate fixture.
 - Replaced public mythology-based component labels with functional names in documentation, tests, evidence IDs, console output, and entry points.
 - Renamed the public intent-canonicalization and scripted-adversarial modules while keeping behavior unchanged.
+- Replaced caller-controlled trust mapping with a registered provider-verifier dispatch boundary.
+- Restricted simulator verification to development trust and enforced strict provider-result schemas.
+- Added TPM quote-signature plus whole-bundle attestation-key signature verification before hardware trust.
 
 ## Tests executed
 
@@ -26,6 +29,7 @@
 - Tracked-artifact and public-reader-path audits: passed.
 - Prospective clean checkout: `npm ci`, Python virtual-environment install, all builds, all tests, demo, and certificate verification passed.
 - Functional-label regression: 16 TypeScript tests passed, 1 opt-in TPM test skipped, 36 Python tests passed, and the scripted adversarial demo passed.
+- Provider-dispatch regression: 26 TypeScript tests passed, 1 opt-in real-TPM test skipped, 36 Python tests passed, and all 8 TypeScript workspaces built.
 
 ## Known failures
 
@@ -54,6 +58,7 @@
 - `examples/reference-run/`
 - `pyproject.toml`
 - Functional component IDs, intent canonicalizer, scripted adversarial runner, public architecture, and integration output
+- Attestation provider-verifier interfaces, simulator and TPM verifier implementations, Linux TPM bundle signing, and adversarial dispatch tests
 - `STATUS.md`
 
 ## Commands to reproduce
@@ -67,10 +72,10 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Replace caller-controlled trust mapping with registered provider-specific attestation verification dispatch and adversarial method/trust substitution tests.
+Replace nonce check-then-consume behavior with an atomic, context-bound, one-use nonce authority and concurrency tests.
 
 ## Exact next command
 
 ```powershell
-Get-Content attestation/packages/core/src/verifier.ts
+Get-Content attestation/packages/core/src/nonce-store.ts
 ```

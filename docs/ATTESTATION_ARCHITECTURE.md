@@ -32,7 +32,7 @@ Static-policy intersection -> capability broker
 - `@event-horizon/attestation-sdk` exposes the local client and server API.
 - `@event-horizon/attestation-middleware` adapts verification to HTTP-like request objects.
 
-The private CLI and service workspaces support development and are not published packages.
+The `eh-attest` CLI supports explicit development workflows. The remote service workspace is private and remains unimplemented for production use.
 
 ## Authority relationship
 

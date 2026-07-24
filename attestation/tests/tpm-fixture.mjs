@@ -4,6 +4,7 @@ import {
   sign,
 } from 'node:crypto';
 import { tpm2KeyIdFromPublicKey } from '../packages/core/dist/index.js';
+import { canonicalBytes } from '../packages/crypto/dist/index.js';
 
 function hash(value) {
   return createHash('sha256').update(value).digest();
@@ -83,10 +84,10 @@ export function createTpmBundle(identity, options) {
     bitmap,
     sized(pcrDigest),
   ]);
-  const signature = sign('sha256', quote, identity.privateKey);
+  const quoteSignature = sign('sha256', quote, identity.privateKey);
   const executor = hash(JSON.stringify(Object.fromEntries(Object.entries(pcrValues).sort()))).toString('hex');
   const issuedAt = options.issuedAt ?? new Date();
-  return {
+  const unsigned = {
     version: 'eh-attestation-1',
     method: 'tpm2',
     deviceId: options.deviceId ?? 'tpm-device-1',
@@ -98,6 +99,7 @@ export function createTpmBundle(identity, options) {
     evidence: {
       provider: 'tpm2-fixture',
       quote: quote.toString('base64url'),
+      quoteSignature: quoteSignature.toString('base64url'),
       signatureAlgorithm: 'rsassa-sha256',
       hashAlgorithm: 'sha256',
       pcrValues,
@@ -105,6 +107,7 @@ export function createTpmBundle(identity, options) {
       eventLog: options.includeEventLog === false ? null : eventLog,
       akQualifiedName: identity.qualifiedName,
     },
-    signature: signature.toString('base64url'),
   };
+  const bundleSignature = sign('sha256', canonicalBytes(unsigned), identity.privateKey);
+  return { ...unsigned, signature: bundleSignature.toString('base64url') };
 }

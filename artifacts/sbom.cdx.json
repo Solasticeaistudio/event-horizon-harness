@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:5847b8ab-4bbc-4c88-a1a4-e018d7e2b2e5",
+  "serialNumber": "urn:uuid:7f747fe7-bb02-471d-8ddf-e19a21a238d4",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-07-24T23:07:14.288Z",
+    "timestamp": "2026-07-24T23:19:07.326Z",
     "lifecycles": [
       {
         "phase": "pre-build"
@@ -305,7 +305,8 @@
     {
       "ref": "@event-horizon/attestation-tpm@0.4.0",
       "dependsOn": [
-        "@event-horizon/attestation-core@0.4.0"
+        "@event-horizon/attestation-core@0.4.0",
+        "@event-horizon/attestation-crypto@0.4.0"
       ]
     },
     {

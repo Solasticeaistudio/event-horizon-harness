@@ -5,6 +5,7 @@ import { join, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { AttestationBundle, AttestationBundleUnsigned } from '@event-horizon/attestation-core';
 import { tpm2KeyIdFromPublicKey } from '@event-horizon/attestation-core';
+import { canonicalBytes } from '@event-horizon/attestation-crypto';
 import type { TpmQuoteProvider } from './index.js';
 
 export interface LinuxTpm2ToolsConfig {
@@ -194,7 +195,9 @@ export class LinuxTpm2ToolsProvider implements TpmQuoteProvider {
     }
     const noncePath = join(quoteDirectory, 'nonce.bin');
     const quotePath = join(quoteDirectory, 'quote.msg');
-    const signaturePath = join(quoteDirectory, 'quote.sig');
+    const quoteSignaturePath = join(quoteDirectory, 'quote.sig');
+    const bundlePath = join(quoteDirectory, 'bundle.canonical.json');
+    const bundleSignaturePath = join(quoteDirectory, 'bundle.sig');
     const pcrPath = join(quoteDirectory, 'pcr.values');
     try {
       await writeFile(noncePath, nonce, { mode: 0o600, flag: 'wx' });
@@ -203,15 +206,15 @@ export class LinuxTpm2ToolsProvider implements TpmQuoteProvider {
         '-l', `sha256:${selection.join(',')}`,
         '-q', noncePath,
         '-m', quotePath,
-        '-s', signaturePath,
+        '-s', quoteSignaturePath,
         '-f', 'plain',
         '-o', pcrPath,
         '-F', 'values',
         '-g', 'sha256',
       ]);
-      const [quote, signature, pcrData] = await Promise.all([
+      const [quote, quoteSignature, pcrData] = await Promise.all([
         readFile(quotePath),
-        readFile(signaturePath),
+        readFile(quoteSignaturePath),
         readFile(pcrPath),
       ]);
       if (pcrData.length !== selection.length * 32) {
@@ -246,6 +249,7 @@ export class LinuxTpm2ToolsProvider implements TpmQuoteProvider {
         evidence: {
           provider: 'linux-tpm2-tools',
           quote: quote.toString('base64url'),
+          quoteSignature: quoteSignature.toString('base64url'),
           signatureAlgorithm: 'rsassa-sha256',
           hashAlgorithm: 'sha256',
           pcrValues,
@@ -254,7 +258,16 @@ export class LinuxTpm2ToolsProvider implements TpmQuoteProvider {
           akQualifiedName: ak.qualifiedName,
         },
       };
-      return { ...unsigned, signature: signature.toString('base64url') };
+      await writeFile(bundlePath, canonicalBytes(unsigned), { mode: 0o600, flag: 'wx' });
+      this.run('tpm2_sign', [
+        '-Q', '-c', ak.contextPath,
+        '-g', 'sha256',
+        '-f', 'plain',
+        '-o', bundleSignaturePath,
+        bundlePath,
+      ]);
+      const bundleSignature = await readFile(bundleSignaturePath);
+      return { ...unsigned, signature: bundleSignature.toString('base64url') };
     } finally {
       await rm(quoteDirectory, { recursive: true, force: true });
     }

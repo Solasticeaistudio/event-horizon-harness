@@ -235,7 +235,6 @@ export function tpm2KeyIdFromPublicKey(publicKeyPem: string): string {
 
 export function verifyTpmQuote(
   evidence: Record<string, unknown>,
-  signatureValue: unknown,
   options: {
     nonce: string;
     publicKeyPem: string;
@@ -247,7 +246,7 @@ export function verifyTpmQuote(
   try {
     const fields = [
       'akQualifiedName', 'eventLog', 'hashAlgorithm', 'pcrSelection',
-      'pcrValues', 'provider', 'quote', 'signatureAlgorithm',
+      'pcrValues', 'provider', 'quote', 'quoteSignature', 'signatureAlgorithm',
     ];
     if (JSON.stringify(Object.keys(evidence).sort()) !== JSON.stringify(fields)) {
       return quoteFailure('TPM_QUOTE_MALFORMED', 'TPM evidence fields are invalid');
@@ -259,7 +258,7 @@ export function verifyTpmQuote(
       return quoteFailure('TPM_QUOTE_MALFORMED', 'unsupported TPM quote signature parameters');
     }
     const quote = strictBase64url(evidence.quote, 'quote');
-    const signature = strictBase64url(signatureValue, 'quote signature');
+    const signature = strictBase64url(evidence.quoteSignature, 'quote signature');
     const parsed = parseTpmsAttest(quote);
     const nonce = strictBase64url(options.nonce, 'nonce');
     if (!parsed.extraData.equals(nonce)) return quoteFailure('TPM_NONCE_MISMATCH', 'quote nonce does not match challenge');

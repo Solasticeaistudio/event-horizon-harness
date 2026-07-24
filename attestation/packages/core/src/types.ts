@@ -30,6 +30,40 @@ export interface OneOfMeasurementRule {
 
 export type MeasurementRule = ExactMeasurementRule | OneOfMeasurementRule;
 
+export interface ProviderVerificationContext {
+  nonce: string;
+  publicKeyPem: string;
+  now: Date;
+  maxProofAgeSeconds: number;
+  maxFutureSkewSeconds: number;
+  measurementPolicy: Record<string, MeasurementRule>;
+  expectedTpmQualifiedSigner?: string;
+  expectedTpmPcrSelection?: string[];
+  requireTpmEventLog: boolean;
+}
+
+export interface ProviderVerificationSuccess {
+  valid: true;
+  method: AttestationMethod;
+  trustLevel: TrustLevel;
+  assuranceLevel: AssuranceLevel;
+  keyId: string;
+  measurements: Record<string, string>;
+}
+
+export interface ProviderVerificationFailure {
+  valid: false;
+  failureCode: VerificationFailure['failureCode'];
+  failureReason: string;
+}
+
+export type ProviderVerificationResult = ProviderVerificationSuccess | ProviderVerificationFailure;
+
+export interface AttestationProviderVerifier {
+  readonly method: AttestationMethod;
+  verify(bundle: Readonly<AttestationBundle>, context: Readonly<ProviderVerificationContext>): ProviderVerificationResult;
+}
+
 export interface VerifierConfig {
   minTrustLevel?: TrustLevel;
   maxProofAgeSeconds?: number;
@@ -41,6 +75,8 @@ export interface VerifierConfig {
   tpmAkQualifiedNames?: Record<string, string>;
   tpmPcrSelections?: Record<string, string[]>;
   requireTpmEventLog?: boolean;
+  useDefaultProviderVerifiers?: boolean;
+  providerVerifiers?: AttestationProviderVerifier[];
   now?: () => Date;
 }
 
@@ -75,13 +111,17 @@ export interface VerificationFailure {
     | 'TRUST_LEVEL_TOO_LOW'
     | 'MEASUREMENT_POLICY_FAILED'
     | 'UNSUPPORTED_METHOD'
+    | 'VERIFIER_UNAVAILABLE'
+    | 'PROVIDER_ERROR'
+    | 'PROVIDER_RESULT_INVALID'
     | 'TPM_QUOTE_MALFORMED'
     | 'TPM_NONCE_MISMATCH'
     | 'TPM_AK_MISMATCH'
     | 'TPM_QUOTE_SIGNATURE'
     | 'TPM_PCR_SELECTION'
     | 'TPM_PCR_DIGEST'
-    | 'TPM_EVENT_LOG';
+    | 'TPM_EVENT_LOG'
+    | 'TPM_BUNDLE_SIGNATURE';
   verifiedAt: string;
 }
 
