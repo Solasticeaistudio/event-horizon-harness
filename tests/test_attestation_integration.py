@@ -6,10 +6,24 @@ from pathlib import Path
 
 from event_horizon.certificate import ContainmentCertificateBuilder
 from event_horizon.component_ids import EXECUTOR_ATTESTATION_GUARDIAN
+from event_horizon.attestation import DevelopmentAttestationProvider
 from event_horizon.factory import build_local_harness
 
 
 class ExecutorAttestationIntegrationTests(unittest.TestCase):
+    def test_development_provider_never_caches_by_executor_id(self):
+        provider = DevelopmentAttestationProvider(
+            attestation_root=Path(__file__).resolve().parents[1] / "attestation",
+            device_seeds={"exec-1": "event-horizon-attestation-rebuild"},
+        )
+        first = provider.verify_executor("exec-1", "session-a", "capability-issuance")
+        second = provider.verify_executor("exec-1", "session-a", "capability-issuance")
+        third = provider.verify_executor("exec-1", "session-b", "capability-issuance")
+        self.assertNotEqual(first["bundleDigest"], second["bundleDigest"])
+        self.assertNotEqual(first["resultDigest"], second["resultDigest"])
+        self.assertEqual(third["nonceContext"]["sessionId"], "session-b")
+        self.assertNotEqual(second["resultDigest"], third["resultDigest"])
+
     def test_guardian_records_verified_attestation_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             neural, _executor, recorder, _broker = build_local_harness(tmp)

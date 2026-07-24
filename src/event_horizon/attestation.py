@@ -72,6 +72,8 @@ class DevelopmentAttestationProvider:
 
     This provider is intentionally a development bridge. The production trusted
     path will use a fixed local protocol and a separately administered verifier.
+    No successful result is cached: every call creates and consumes a fresh,
+    session-bound challenge before returning evidence for capability issuance.
     """
 
     attestation_root: Path

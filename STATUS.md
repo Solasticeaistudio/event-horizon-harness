@@ -23,6 +23,8 @@
 - Bound every issued challenge to device, executor, session, purpose, issuance time, and expiration time.
 - Added an in-memory persistence implementation plus an explicit transactional persistence boundary without claiming distributed atomicity.
 - Propagated verified nonce context and lifetime through guardians, capabilities, process services, and evidence records.
+- Made the development bridge's no-cache contract explicit: each capability request requires a fresh proof and session-bound result digest.
+- Added stale-proof and reuse regressions covering expiry, measurement, policy, session, key, and executor changes.
 
 ## Tests executed
 
@@ -35,6 +37,7 @@
 - Functional-label regression: 16 TypeScript tests passed, 1 opt-in TPM test skipped, 36 Python tests passed, and the scripted adversarial demo passed.
 - Provider-dispatch regression: 26 TypeScript tests passed, 1 opt-in real-TPM test skipped, 36 Python tests passed, and all 8 TypeScript workspaces built.
 - Nonce-authority regression: 34 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 36 Python tests passed.
+- Fresh-attestation regression: 42 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 37 Python tests passed.
 
 ## Known failures
 
@@ -77,7 +80,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Remove any stale executor-attestation reuse and prove that measurement, policy, session, key, and executor changes require fresh verification.
+Harden capability canonicalization and add fixed public adversarial verification vectors.
 
 ## Exact next command
 
