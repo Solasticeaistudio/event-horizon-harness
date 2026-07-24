@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 
@@ -116,8 +117,10 @@ class ProcessHarnessTests(unittest.TestCase):
     def test_recorder_restart_recovers_and_source_gaps_are_detected(self):
         self.harness.record('test.before-restart', {'ok': True})
         before = self.harness.call('recorder', 'verify', {})['count']
+        before_key_id = self.harness.service_info['recorder']['key_id']
         recovered = self.harness.restart_recorder()
         self.assertEqual(recovered['count'], before)
+        self.assertEqual(recovered['key_id'], before_key_id)
         self.harness.record('test.after-restart', {'ok': True})
         with self.assertRaises(ProtocolError) as gap:
             self.harness.call(
@@ -131,6 +134,20 @@ class ProcessHarnessTests(unittest.TestCase):
                 },
             )
         self.assertEqual(gap.exception.code, 'recording_denied')
+
+    def test_external_recorder_tampering_after_host_compromise_fails_closed(self):
+        self.harness.record('host-compromise.before', {'trusted': True})
+        path = self.harness.recorder_path
+        lines = path.read_text(encoding='utf-8').splitlines()
+        event = json.loads(lines[0])
+        event['payload']['trusted'] = False
+        lines[0] = json.dumps(event, sort_keys=True, separators=(',', ':'))
+        path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        status = self.harness.call('recorder', 'verify', {})
+        self.assertFalse(status['valid'])
+        with self.assertRaises(ProtocolError) as denied:
+            self.harness.record('host-compromise.after', {'trusted': False})
+        self.assertEqual(denied.exception.code, 'recording_denied')
 
     def test_output_channel_pressure_is_denied(self):
         request, capability, attestation = self.issue(

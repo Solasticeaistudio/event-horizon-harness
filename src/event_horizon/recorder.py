@@ -3,7 +3,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -22,11 +24,7 @@ class RecorderIntegrityError(RuntimeError):
 
 
 class ExternalRecorder:
-    """Append-only hash-chained JSONL recorder.
-
-    In v0.2 this is a separate local path. Production deployment must place it
-    outside the hostile host behind a one-way transport.
-    """
+    """Append-only hash-chained recorder for an external evidence process."""
 
     def __init__(
         self,
@@ -77,6 +75,8 @@ class ExternalRecorder:
             return True, "ok", previous, count, source_sequences
         with self.path.open("r", encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, 1):
+                if len(line.encode("utf-8")) != self.max_event_bytes:
+                    return False, f"event digest or envelope size failure at line {line_number}", previous, count, source_sequences
                 if not line.strip():
                     return False, f"blank record at line {line_number}", previous, count, source_sequences
                 try:
@@ -146,9 +146,10 @@ class ExternalRecorder:
                 "previous_hash": self._tip,
             }
             event["event_hash"] = digest(event)
-            encoded = canonical_bytes(event) + b"\n"
-            if len(encoded) > self.max_event_bytes:
+            encoded_event = canonical_bytes(event)
+            if len(encoded_event) + 1 > self.max_event_bytes:
                 raise ValueError("recorder event exceeds fixed envelope")
+            encoded = encoded_event + (b" " * (self.max_event_bytes - len(encoded_event) - 1)) + b"\n"
             with self.path.open("ab") as handle:
                 handle.write(encoded)
                 handle.flush()
@@ -195,11 +196,37 @@ class ExternalRecorder:
                 "sequence", "event_hash", "source_id", "source_sequence", "issued_at", "key_id"
             }:
                 return False
+            if (
+                not isinstance(payload["sequence"], int)
+                or payload["sequence"] < 1
+                or not isinstance(payload["source_sequence"], int)
+                or payload["source_sequence"] < 1
+                or not isinstance(payload["source_id"], str)
+                or not payload["source_id"]
+                or not isinstance(payload["event_hash"], str)
+                or re.fullmatch(r"[0-9a-f]{64}", payload["event_hash"]) is None
+                or not isinstance(payload["issued_at"], (int, float))
+                or isinstance(payload["issued_at"], bool)
+                or not math.isfinite(payload["issued_at"])
+                or not isinstance(payload["key_id"], str)
+            ):
+                return False
             public_key = serialization.load_pem_public_key(public_key_pem.encode("ascii"))
             if not isinstance(public_key, Ed25519PublicKey):
                 return False
+            raw_public = public_key.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+            expected_key_id = f"ed25519:{hashlib.sha256(raw_public).hexdigest()[:32]}"
+            if payload["key_id"] != expected_key_id:
+                return False
+            if not isinstance(receipt["signature"], str):
+                return False
             padding = "=" * (-len(receipt["signature"]) % 4)
             signature = base64.urlsafe_b64decode(receipt["signature"] + padding)
+            if base64.urlsafe_b64encode(signature).rstrip(b"=").decode("ascii") != receipt["signature"]:
+                return False
             public_key.verify(signature, canonical_bytes(payload))
             return True
         except (KeyError, TypeError, ValueError, InvalidSignature):
