@@ -1,0 +1,51 @@
+{
+  "algorithm": "Ed25519",
+  "certificate": {
+    "assertions": {
+      "signature_fixture_only": true
+    },
+    "attestation_bundle_digests": [],
+    "attestation_result_digests": [],
+    "completed_actions": 0,
+    "created_at": 0.0,
+    "denied_transitions": 0,
+    "event_chain_tip": "0000000000000000000000000000000000000000000000000000000000000000",
+    "event_chain_valid": true,
+    "event_count": 0,
+    "evidence": {
+      "attestation": {
+        "bundle_digests": [],
+        "result_digests": []
+      },
+      "capability": {
+        "ids": [],
+        "request_digests": [],
+        "signer_key_ids": []
+      },
+      "egress": {
+        "unauthorized_egress": false
+      },
+      "image": {
+        "digests": []
+      },
+      "policy": {
+        "digests": []
+      },
+      "recorder": {
+        "chain_tip": "0000000000000000000000000000000000000000000000000000000000000000",
+        "chain_valid": true,
+        "event_count": 0,
+        "key_id": "fixture-none"
+      },
+      "teardown": {
+        "verified": false
+      }
+    },
+    "run_id": "reference-signature-fixture",
+    "schema": "event-horizon.containment-certificate.v0.4",
+    "session_id": "synthetic-reference-session"
+  },
+  "key_id": "ed25519:7db0b01f39d179aacf7b03dbd7dd9d71",
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAIvwpd5Lwtv/Av8/bftsMCqFOAlo2XsDjQuhuOCnLdLY=\n-----END PUBLIC KEY-----\n",
+  "signature": "dXO2XxzOdHKTMtMcLaRhcAII_jTge7N5wr5bEOFOH73gyI30tQiFLrNHdJMIzHUPgXpJO8-r7HgjIosl-GfHBg"
+}

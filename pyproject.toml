@@ -1,15 +1,15 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools==82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "event-horizon-harness"
-version = "0.3.0"
+version = "0.4.0"
 description = "Compromise-tolerant authority containment harness for autonomous agents"
 requires-python = ">=3.11"
 authors = [{name = "Justin Meister / Solstice AI Studio"}]
 license = {text = "Proprietary research prototype"}
-dependencies = ["cryptography>=42"]
+dependencies = ["cryptography==46.0.3"]
 
 [project.scripts]
 event-horizon-demo = "event_horizon.demo:main"

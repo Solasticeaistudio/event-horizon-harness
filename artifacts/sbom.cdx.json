@@ -1,0 +1,326 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:5847b8ab-4bbc-4c88-a1a4-e018d7e2b2e5",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-07-24T23:07:14.288Z",
+    "lifecycles": [
+      {
+        "phase": "pre-build"
+      }
+    ],
+    "tools": [
+      {
+        "vendor": "npm",
+        "name": "cli",
+        "version": "10.9.3"
+      }
+    ],
+    "component": {
+      "bom-ref": "event-horizon-harness@0.4.0",
+      "type": "application",
+      "name": "event-horizon-harness",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/event-horizon-harness@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": ""
+        },
+        {
+          "name": "cdx:npm:package:private",
+          "value": "true"
+        }
+      ],
+      "externalReferences": []
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "@event-horizon/attestation-service@0.4.0",
+      "type": "library",
+      "name": "service",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40event-horizon/attestation-service@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "attestation/apps/service"
+        },
+        {
+          "name": "cdx:npm:package:private",
+          "value": "true"
+        }
+      ],
+      "externalReferences": []
+    },
+    {
+      "bom-ref": "@event-horizon/attestation-cli@0.4.0",
+      "type": "library",
+      "name": "cli",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40event-horizon/attestation-cli@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "attestation/packages/cli"
+        }
+      ],
+      "externalReferences": []
+    },
+    {
+      "bom-ref": "@event-horizon/attestation-core@0.4.0",
+      "type": "library",
+      "name": "core",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40event-horizon/attestation-core@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "attestation/packages/core"
+        }
+      ],
+      "externalReferences": []
+    },
+    {
+      "bom-ref": "@event-horizon/attestation-crypto@0.4.0",
+      "type": "library",
+      "name": "crypto",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40event-horizon/attestation-crypto@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "attestation/packages/crypto"
+        }
+      ],
+      "externalReferences": []
+    },
+    {
+      "bom-ref": "@event-horizon/attestation-middleware@0.4.0",
+      "type": "library",
+      "name": "middleware",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40event-horizon/attestation-middleware@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "attestation/packages/middleware"
+        }
+      ],
+      "externalReferences": []
+    },
+    {
+      "bom-ref": "@event-horizon/attestation-sdk@0.4.0",
+      "type": "library",
+      "name": "sdk",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40event-horizon/attestation-sdk@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "attestation/packages/sdk"
+        }
+      ],
+      "externalReferences": []
+    },
+    {
+      "bom-ref": "@event-horizon/attestation-simulator@0.4.0",
+      "type": "library",
+      "name": "simulator",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40event-horizon/attestation-simulator@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "attestation/packages/simulator"
+        }
+      ],
+      "externalReferences": []
+    },
+    {
+      "bom-ref": "@event-horizon/attestation-tpm@0.4.0",
+      "type": "library",
+      "name": "tpm",
+      "version": "0.4.0",
+      "scope": "required",
+      "purl": "pkg:npm/%40event-horizon/attestation-tpm@0.4.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "attestation/packages/tpm"
+        }
+      ],
+      "externalReferences": []
+    },
+    {
+      "bom-ref": "@types/node@22.20.1",
+      "type": "library",
+      "name": "@types/node",
+      "version": "22.20.1",
+      "scope": "optional",
+      "purl": "pkg:npm/%40types/node@22.20.1",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@types/node"
+        },
+        {
+          "name": "cdx:npm:package:development",
+          "value": "true"
+        }
+      ],
+      "externalReferences": [],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "typescript@5.9.3",
+      "type": "library",
+      "name": "typescript",
+      "version": "5.9.3",
+      "scope": "optional",
+      "purl": "pkg:npm/typescript@5.9.3",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/typescript"
+        },
+        {
+          "name": "cdx:npm:package:development",
+          "value": "true"
+        }
+      ],
+      "externalReferences": [],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "bom-ref": "undici-types@6.21.0",
+      "type": "library",
+      "name": "undici-types",
+      "version": "6.21.0",
+      "scope": "optional",
+      "purl": "pkg:npm/undici-types@6.21.0",
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/undici-types"
+        },
+        {
+          "name": "cdx:npm:package:development",
+          "value": "true"
+        }
+      ],
+      "externalReferences": [],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "event-horizon-harness@0.4.0",
+      "dependsOn": [
+        "@event-horizon/attestation-cli@0.4.0",
+        "@event-horizon/attestation-core@0.4.0",
+        "@event-horizon/attestation-crypto@0.4.0",
+        "@event-horizon/attestation-middleware@0.4.0",
+        "@event-horizon/attestation-sdk@0.4.0",
+        "@event-horizon/attestation-simulator@0.4.0",
+        "@event-horizon/attestation-tpm@0.4.0",
+        "@event-horizon/attestation-service@0.4.0",
+        "@types/node@22.20.1",
+        "typescript@5.9.3"
+      ]
+    },
+    {
+      "ref": "@event-horizon/attestation-service@0.4.0",
+      "dependsOn": [
+        "@event-horizon/attestation-core@0.4.0"
+      ]
+    },
+    {
+      "ref": "@event-horizon/attestation-cli@0.4.0",
+      "dependsOn": [
+        "@event-horizon/attestation-sdk@0.4.0",
+        "@event-horizon/attestation-simulator@0.4.0"
+      ]
+    },
+    {
+      "ref": "@event-horizon/attestation-core@0.4.0",
+      "dependsOn": [
+        "@event-horizon/attestation-crypto@0.4.0"
+      ]
+    },
+    {
+      "ref": "@event-horizon/attestation-crypto@0.4.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "@event-horizon/attestation-middleware@0.4.0",
+      "dependsOn": [
+        "@event-horizon/attestation-sdk@0.4.0"
+      ]
+    },
+    {
+      "ref": "@event-horizon/attestation-sdk@0.4.0",
+      "dependsOn": [
+        "@event-horizon/attestation-core@0.4.0",
+        "@event-horizon/attestation-simulator@0.4.0",
+        "@event-horizon/attestation-tpm@0.4.0"
+      ]
+    },
+    {
+      "ref": "@event-horizon/attestation-simulator@0.4.0",
+      "dependsOn": [
+        "@event-horizon/attestation-core@0.4.0",
+        "@event-horizon/attestation-crypto@0.4.0"
+      ]
+    },
+    {
+      "ref": "@event-horizon/attestation-tpm@0.4.0",
+      "dependsOn": [
+        "@event-horizon/attestation-core@0.4.0"
+      ]
+    },
+    {
+      "ref": "@types/node@22.20.1",
+      "dependsOn": [
+        "undici-types@6.21.0"
+      ]
+    },
+    {
+      "ref": "typescript@5.9.3",
+      "dependsOn": []
+    },
+    {
+      "ref": "undici-types@6.21.0",
+      "dependsOn": []
+    }
+  ]
+}

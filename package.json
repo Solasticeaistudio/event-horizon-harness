@@ -1,0 +1,26 @@
+{
+  "name": "event-horizon-harness",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "attestation/packages/*",
+    "attestation/apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @event-horizon/attestation-crypto && npm run build -w @event-horizon/attestation-core && npm run build -w @event-horizon/attestation-simulator && npm run build -w @event-horizon/attestation-tpm && npm run build -w @event-horizon/attestation-sdk && npm run build -w @event-horizon/attestation-middleware && npm run build -w @event-horizon/attestation-cli && npm run build -w @event-horizon/attestation-service",
+    "typecheck": "npm run build",
+    "test": "npm run test:typescript && npm run test:python",
+    "test:typescript": "node --test attestation/tests/*.test.mjs",
+    "test:python": "python -m unittest discover -s tests -v",
+    "demo": "python -m event_horizon.demo",
+    "sbom": "npm sbom --package-lock-only --sbom-format cyclonedx --sbom-type application"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3"
+  }
+}

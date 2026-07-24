@@ -9,6 +9,11 @@
 - Regenerated the attestation lockfile with only current workspace paths.
 - Removed archived ZIP/checksum releases, generated output snapshots, stale source inventories, recovered build notes, and AI-development handoff material from the public tree.
 - Expanded the root ignore policy across all Python and Node workspaces, local environment files, coverage output, and internal development material.
+- Promoted npm to a pinned root workspace with one lockfile and root-level build/test commands.
+- Pinned the Python runtime dependency and build backend for the v0.4.0 artifact.
+- Generated a CycloneDX 1.5 SBOM with 11 components.
+- Added isolated clean-install scripts for POSIX shells and PowerShell.
+- Added an independently verifiable, explicitly non-claiming certificate fixture.
 
 ## Tests executed
 
@@ -17,6 +22,7 @@
 - `eh-attest prove`, `eh-attest verify`, `eh-attest inspect`: passed.
 - `python -m unittest discover -s tests -v`: 36 passed.
 - Tracked-artifact and public-reader-path audits: passed.
+- Prospective clean checkout: `npm ci`, Python virtual-environment install, all builds, all tests, demo, and certificate verification passed.
 
 ## Known failures
 
@@ -38,25 +44,29 @@
 - `docs/RENAMING_NOTES.md`
 - Python integration, certificate schema, scripts, and active documentation references
 - Root `.gitignore` and removal of obsolete public-tree debris
+- Root `package.json` and `package-lock.json`
+- `artifacts/sbom.cdx.json`
+- `scripts/verify-clean-install.sh` and `scripts/verify-clean-install.ps1`
+- `scripts/verify_certificate.py`
+- `examples/reference-run/`
+- `pyproject.toml`
 - `STATUS.md`
 
 ## Commands to reproduce
 
 ```powershell
-Set-Location attestation
-npm install
+npm ci
 npm run build
 npm test
-Set-Location ..
-python -m unittest discover -s tests -v
+python scripts/verify_certificate.py examples/reference-run/containment-certificate.json
 ```
 
 ## Next engineering milestone
 
-Move the npm workspace manifest and lockfile to the repository root, add clean-install verification scripts, and generate the CycloneDX SBOM.
+Replace mythological labels in all public documentation, diagrams, command output, and tests with functional component names.
 
 ## Exact next command
 
 ```powershell
-git mv attestation/package.json package.json
+rg -n "Neural Link Zero|Cerberus|Aegis|Talos|Nemesis|Delta|Assurance|Iaso" README.md docs examples tests
 ```
