@@ -1,56 +1,29 @@
+HardProof verification record
+Date: 2026-07-24
 
-> hardproof-rebuild@0.2.0 test
-> node --test tests/*.test.mjs
+Commands:
+  npm run build
+  npm test
 
-TAP version 13
-# Subtest: simulator proof verifies
-ok 1 - simulator proof verifies
-  ---
-  duration_ms: 3.726023
-  type: 'test'
-  ...
-# Subtest: tampered measurement fails signature
-ok 2 - tampered measurement fails signature
-  ---
-  duration_ms: 1.380163
-  type: 'test'
-  ...
-# Subtest: nonce mismatch fails
-ok 3 - nonce mismatch fails
-  ---
-  duration_ms: 0.825358
-  type: 'test'
-  ...
-# Subtest: proof replay fails
-ok 4 - proof replay fails
-  ---
-  duration_ms: 1.365972
-  type: 'test'
-  ...
-# Subtest: measurement policy mismatch fails
-ok 5 - measurement policy mismatch fails
-  ---
-  duration_ms: 1.323088
-  type: 'test'
-  ...
-# Subtest: unknown device fails closed
-ok 6 - unknown device fails closed
-  ---
-  duration_ms: 0.918717
-  type: 'test'
-  ...
-# Subtest: sdk local path and bundle encoding work
-ok 7 - sdk local path and bundle encoding work
-  ---
-  duration_ms: 2.082559
-  type: 'test'
-  ...
-1..7
-# tests 7
-# suites 0
-# pass 7
-# fail 0
-# cancelled 0
-# skipped 0
-# todo 0
-# duration_ms 64.353193
+Result:
+  tests 17
+  pass 16
+  fail 0
+  skipped 1
+
+The skipped test is the explicit real Linux TPM quote integration and runs only
+with HARDPROOF_REAL_TPM=1. Runnable tests include all original seven tests plus
+valid, tampered, stale, replayed, wrong-AK, wrong-PCR, event-log, nonce, and
+no-provider TPM cases.
+
+Linux command-path integration:
+  ./scripts/run-swtpm-hardproof.sh
+
+Result on Ubuntu WSL2 with swtpm 0.7.3 and tpm2-tools 5.6:
+  tests 17
+  pass 17
+  fail 0
+  skipped 0
+
+This run exercises explicit persistent EK/AK provisioning, nonce-bound quote
+acquisition, and independent verification. swtpm is not hardware provenance.

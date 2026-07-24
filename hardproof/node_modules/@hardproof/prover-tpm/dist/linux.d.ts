@@ -9,6 +9,8 @@ export interface LinuxTpm2ToolsConfig {
     akContextPath?: string;
     akPublicKeyPath?: string;
     akQualifiedNamePath?: string;
+    ekPersistentHandle?: string;
+    akPersistentHandle?: string;
     normalizedEventLogPath?: string;
 }
 export interface RegisteredAttestationKey {
@@ -27,6 +29,9 @@ export declare class LinuxTpm2ToolsProvider implements TpmQuoteProvider {
     constructor(config: LinuxTpm2ToolsConfig);
     static isAvailable(tcti?: string): Promise<boolean>;
     private run;
+    private transientHandles;
+    private persistentHandles;
+    private persistentHandle;
     private paths;
     provisionAk(): Promise<RegisteredAttestationKey>;
     loadAk(): Promise<RegisteredAttestationKey>;

@@ -16,6 +16,8 @@ export interface LinuxTpm2ToolsConfig {
   akContextPath?: string;
   akPublicKeyPath?: string;
   akQualifiedNamePath?: string;
+  ekPersistentHandle?: string;
+  akPersistentHandle?: string;
   normalizedEventLogPath?: string;
 }
 
@@ -88,6 +90,24 @@ export class LinuxTpm2ToolsProvider implements TpmQuoteProvider {
     return String(result.stdout ?? '');
   }
 
+  private transientHandles(): Set<string> {
+    const output = this.run('tpm2_getcap', ['-Q', 'handles-transient']);
+    const handles = output.match(/0x8[0-9a-fA-F]{7}/g) ?? [];
+    return new Set(handles.map((handle) => handle.toLowerCase()));
+  }
+
+  private persistentHandles(): Set<string> {
+    const output = this.run('tpm2_getcap', ['-Q', 'handles-persistent']);
+    const handles = output.match(/0x81[0-9a-fA-F]{6}/g) ?? [];
+    return new Set(handles.map((handle) => handle.toLowerCase()));
+  }
+
+  private persistentHandle(value: string | undefined, fallback: string): string {
+    const handle = (value ?? fallback).toLowerCase();
+    if (!/^0x81[0-9a-f]{6}$/.test(handle)) throw new TypeError('TPM persistent handle must be in the 0x81xxxxxx range');
+    return handle;
+  }
+
   private paths(): { context: string; publicKey: string; qualifiedName: string } {
     return {
       context: resolve(this.config.akContextPath ?? join(this.workDirectory, 'ak.ctx')),
@@ -107,14 +127,28 @@ export class LinuxTpm2ToolsProvider implements TpmQuoteProvider {
         if (error instanceof Error && error.name === 'TPM_AK_EXISTS') throw error;
       }
     }
-    const ekContext = join(this.workDirectory, 'ek.ctx');
+    const ekHandle = this.persistentHandle(this.config.ekPersistentHandle, '0x81010001');
+    const akHandle = this.persistentHandle(this.config.akPersistentHandle, '0x81010002');
+    if (ekHandle === akHandle) throw new TypeError('EK and AK persistent handles must differ');
+    const occupied = this.persistentHandles();
+    if (occupied.has(ekHandle) || occupied.has(akHandle)) {
+      throw errorWithName('TPM_PERSISTENT_HANDLE_EXISTS', 'refusing to overwrite an existing TPM persistent handle');
+    }
+    const akTransientContext = join(this.workDirectory, 'ak.transient.ctx');
     const ekPublic = join(this.workDirectory, 'ek.pem');
-    this.run('tpm2_createek', ['-Q', '-G', 'rsa', '-c', ekContext, '-u', ekPublic, '-f', 'pem']);
+    const handlesBefore = this.transientHandles();
+    this.run('tpm2_createek', ['-Q', '-G', 'rsa', '-c', ekHandle, '-u', ekPublic, '-f', 'pem']);
     this.run('tpm2_createak', [
-      '-Q', '-C', ekContext, '-G', 'rsa', '-g', 'sha256', '-s', 'rsassa',
-      '-c', paths.context, '-u', paths.publicKey, '-f', 'pem', '-n', join(this.workDirectory, 'ak.name'),
+      '-Q', '-C', ekHandle, '-G', 'rsa', '-g', 'sha256', '-s', 'rsassa',
+      '-c', akTransientContext, '-u', paths.publicKey, '-f', 'pem', '-n', join(this.workDirectory, 'ak.name'),
       '-q', paths.qualifiedName,
     ]);
+    this.run('tpm2_evictcontrol', ['-Q', '-C', 'o', '-c', akTransientContext, '-o', paths.context, akHandle]);
+    const providerHandles = [...this.transientHandles()].filter((handle) => !handlesBefore.has(handle));
+    if (providerHandles.length > 4) {
+      throw errorWithName('TPM_CONTEXT_TRACKING_FAILED', 'could not isolate provider-owned transient handles');
+    }
+    for (const handle of providerHandles.reverse()) this.run('tpm2_flushcontext', ['-Q', handle]);
     return this.loadAk();
   }
 
