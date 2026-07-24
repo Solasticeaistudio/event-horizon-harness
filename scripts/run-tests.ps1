@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-Set-Location (Join-Path $Root "hardproof")
+Set-Location (Join-Path $Root "attestation")
 npm test
 Set-Location $Root
 $env:PYTHONPATH = "src"

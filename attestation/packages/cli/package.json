@@ -1,0 +1,9 @@
+{
+  "name": "@event-horizon/attestation-cli",
+  "version": "0.4.0",
+  "type": "module",
+  "bin": {"eh-attest": "./dist/index.js"},
+  "main": "./dist/index.js",
+  "scripts": {"build": "tsc -b tsconfig.json --force"},
+  "dependencies": {"@event-horizon/attestation-sdk": "0.4.0", "@event-horizon/attestation-simulator": "0.4.0"}
+}

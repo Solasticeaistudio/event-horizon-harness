@@ -4,7 +4,7 @@ import hashlib
 import secrets
 from pathlib import Path
 
-from .attestation import HardProofDevelopmentProvider
+from .attestation import DevelopmentAttestationProvider
 from .broker import CapabilityBroker
 from .canonical import digest
 from .executor import SacrificialExecutor
@@ -18,12 +18,12 @@ def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     recorder = ExternalRecorder(workdir / "external-recorder" / "events.jsonl")
-    hardproof_seed = "event-horizon-hardproof-rebuild"
-    measurement = hashlib.sha256(f"simulator:executor:{hardproof_seed}".encode()).hexdigest()
-    hardproof_root = Path(__file__).resolve().parents[2] / "hardproof"
-    attestation_provider = HardProofDevelopmentProvider(
-        hardproof_root=hardproof_root,
-        device_seeds={"exec-1": hardproof_seed},
+    attestation_seed = "event-horizon-attestation-rebuild"
+    measurement = hashlib.sha256(f"simulator:executor:{attestation_seed}".encode()).hexdigest()
+    attestation_root = Path(__file__).resolve().parents[2] / "attestation"
+    attestation_provider = DevelopmentAttestationProvider(
+        attestation_root=attestation_root,
+        device_seeds={"exec-1": attestation_seed},
     )
     policy = StaticPolicy(
         policy_id="eh-demo-policy-v0.3",
@@ -52,7 +52,7 @@ def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
     broker = CapabilityBroker(secrets.token_bytes(32), ttl_seconds=ttl_seconds)
     neural = NeuralLinkZero(policy, quorum, broker, recorder, {"exec-1": measurement})
     verifier_policy_digest = digest({
-        "provider": "hardproof-development-bridge",
+        "provider": "attestation-development-bridge",
         "deviceId": "exec-1",
         "minimumTrust": "simulated",
         "expectedExecutorMeasurement": measurement,

@@ -3,7 +3,7 @@
 Validated on July 23, 2026:
 
 - Event Horizon Python authority and integration suite: **13 passed**
-- HardProof Node/TypeScript suite: **7 passed**
+- Executor Attestation Node/TypeScript suite: **7 passed**
 - Combined: **20 passed, 0 failed**
 
 Covered behaviors include:
@@ -17,7 +17,7 @@ Covered behaviors include:
 - prohibited operation denial;
 - permissive guardian unable to widen policy;
 - recorder tamper detection;
-- HardProof signature validation;
+- Executor Attestation signature validation;
 - nonce mismatch rejection;
 - proof replay rejection;
 - measurement policy rejection;

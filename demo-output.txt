@@ -33,7 +33,7 @@ workdir: /tmp/event-horizon-demo-n4w136gz
 [5] A prohibited network operation fails before execution.
     denied: AuthorizationDenied: guardian veto
 
-[6] External evidence chain, HardProof binding, and certificate
+[6] External evidence chain, Executor Attestation binding, and certificate
     chain valid: True
     chain tip: 4a2e8cebf72204731e352a730d00fc7d4e2495998ac6e6af36191f3528a311f0
     certificate: /tmp/event-horizon-demo-n4w136gz/containment-certificate.json
@@ -48,7 +48,7 @@ workdir: /tmp/event-horizon-demo-n4w136gz
     "event_chain_tip": "4a2e8cebf72204731e352a730d00fc7d4e2495998ac6e6af36191f3528a311f0",
     "completed_actions": 1,
     "denied_transitions": 3,
-    "hardproof_attestation_digests": [
+    "attestation_bundle_digests": [
       "8bdc5f616a567111ada164cf3bef4724503c2809ba1dc51b391b2ed6c13d4068"
     ],
     "assertions": {

@@ -39,4 +39,4 @@ Open synthetic range, reproducible images, technical report, signed evidence bun
 
 ## v0.3 completion note
 
-The simulator-backed HardProof path, Ed25519 capability signing, Ed25519 certificate signing, attestation-digest capability binding, and combined Python/Node test baseline are complete. The next gate is process separation and real TPM quote verification.
+The simulator-backed Executor Attestation path, Ed25519 capability signing, Ed25519 certificate signing, attestation-digest capability binding, and combined Python/Node test baseline are complete. The next gate is process separation and real TPM quote verification.

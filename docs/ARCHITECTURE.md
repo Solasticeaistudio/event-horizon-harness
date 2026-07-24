@@ -6,7 +6,7 @@
 hostile request
       |
       v
-Neural Link Zero parser ----> HardProof verifier
+Neural Link Zero parser ----> Executor Attestation verifier
       |                              |
       +--------> guardian quorum <---+
                          |
@@ -25,7 +25,7 @@ Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes 
 ## Authority flow
 
 1. Neural Link Zero parses and canonicalizes a typed request. It has no tool registry, signing key, network client, or execution authority.
-2. HardProof verifies a verifier-issued one-time nonce, registered device/AK identity, signed measurement evidence, freshness, PCR selection, and policy. It returns evidence, never authorization.
+2. Executor Attestation verifies a verifier-issued one-time nonce, registered device/AK identity, signed measurement evidence, freshness, PCR selection, and policy. It returns evidence, never authorization.
 3. The guardian quorum evaluates static policy, budgets, suspicious transitions, and attestation. One permissive guardian cannot override another veto or widen static policy.
 4. The broker asks the isolated signer to mint a short-lived capability for the exact canonical request digest.
 5. The executor accepts only the public verification key and rechecks every binding before one pre-registered operation. Redemption state outside the executor prevents replay after executor compromise.
@@ -33,21 +33,21 @@ Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes 
 
 ## Capability bindings
 
-The capability commits to request ID and digest, session and agent, operation/resource/arguments, executor and device ID, image/measurement digest, HardProof bundle and result digests, verifier-policy digest, static-policy digest, signer key ID, expiry, one-use invocation count, and maximum output bytes.
+The capability commits to request ID and digest, session and agent, operation/resource/arguments, executor and device ID, image/measurement digest, Executor Attestation bundle and result digests, verifier-policy digest, static-policy digest, signer key ID, expiry, one-use invocation count, and maximum output bytes.
 
 ## Trusted computing base inventory
 
 | Component | Trusted for | Explicitly lacks |
 |---|---|---|
 | Protocol codec/schema | Canonical parsing and bounds | Policy, keys, execution |
-| HardProof verifier | Identity and measurement decision | Authorization and capability key |
+| Executor Attestation verifier | Identity and measurement decision | Authorization and capability key |
 | Static guardian/quorum coordinator | Subtractive policy and veto combination | Execution and signing key |
 | Signer/broker | Exact capability minting and redemption state | Workload code and arbitrary connectors |
 | Executor verifier/dispatcher | Binding checks and fixed operations | Capability private key and ambient credentials |
 | External recorder | Ordered authoritative evidence and receipts | Workload execution authority |
 | Certificate builder | Final evidence-domain validation and signature | Capability minting and workload access |
 | Firecracker, host kernel, KVM, guest image, watchdog | Hardware cell isolation and teardown in KVM mode | External service credentials |
-| TPM, AK, `tpm2-tools`, HardProof parser | Hardware identity/measurement evidence in TPM mode | Action authorization |
+| TPM, AK, `tpm2-tools`, Executor Attestation parser | Hardware identity/measurement evidence in TPM mode | Action authorization |
 
 The model, hostile executor contents, synthetic services, local audit decoy, model-based guardian, and human-facing output are untrusted. Development deployments currently run the seven trusted processes on one host; distinct processes reduce key exposure and confused-deputy paths but do not make a compromised host kernel trustworthy.
 

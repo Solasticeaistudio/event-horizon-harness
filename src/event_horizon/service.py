@@ -8,7 +8,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Mapping
 
-from .attestation import HardProofDevelopmentProvider
+from .attestation import DevelopmentAttestationProvider
 from .broker import CapabilityBroker, CapabilityError, CapabilityVerifier
 from .canonical import digest
 from .certificate import ContainmentCertificateBuilder
@@ -113,11 +113,11 @@ def _parser_specs(config_path: Path) -> dict[str, MessageSpec]:
 
 
 def _verifier_specs(config_path: Path) -> dict[str, MessageSpec]:
-    config = _load_config(config_path, 'verifier', {'hardproof_root', 'device_seeds'})
+    config = _load_config(config_path, 'verifier', {'attestation_root', 'device_seeds'})
     if not isinstance(config['device_seeds'], dict):
         raise RuntimeError('verifier device enrollment is invalid')
-    provider = HardProofDevelopmentProvider(
-        hardproof_root=Path(config['hardproof_root']),
+    provider = DevelopmentAttestationProvider(
+        attestation_root=Path(config['attestation_root']),
         device_seeds=config['device_seeds'],
     )
 
@@ -158,7 +158,7 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
         measurement = attestation['measurements']['executor']
         attestation_allowed = attestation['deviceId'] == request.executor_id
         attestation_decision = GuardianDecision(
-            'hardproof',
+            'attestation',
             attestation_allowed,
             'executor identity and measurement verified' if attestation_allowed else 'device identity mismatch',
             {
@@ -217,7 +217,7 @@ def _guardian_result(value: Any, request: ActionRequest) -> dict[str, Any]:
     decisions = result['decisions']
     if not isinstance(decisions, list) or not decisions:
         raise ProtocolError('guardian_quorum', 'guardian decisions are missing')
-    required = {'cerberus', 'hardproof', 'aegis', 'talos'}
+    required = {'cerberus', 'attestation', 'aegis', 'talos'}
     names: set[str] = set()
     for decision in decisions:
         _exact(decision, {'guardian', 'allowed', 'reason', 'evidence'}, 'guardian decision')
@@ -244,10 +244,12 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
         if attestation['deviceId'] != request.executor_id:
             raise ProtocolError('attestation_device', 'attested device does not match executor')
         cerberus = next(item for item in guardians['decisions'] if item['guardian'] == 'cerberus')
-        hardproof = next(item for item in guardians['decisions'] if item['guardian'] == 'hardproof')
+        attestation_decision = next(
+            item for item in guardians['decisions'] if item['guardian'] == 'attestation'
+        )
         if cerberus['evidence'].get('policy_digest') != guardians['policy_digest']:
             raise ProtocolError('policy_digest', 'static policy digest mismatch')
-        expected_hardproof = {
+        expected_attestation = {
             'device_id': attestation['deviceId'],
             'measurement': attestation['measurements']['executor'],
             'bundle_digest': attestation['bundleDigest'],
@@ -258,7 +260,7 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
             'assurance_level': attestation['assuranceLevel'],
             'key_id': attestation['keyId'],
         }
-        if hardproof['evidence'] != expected_hardproof:
+        if attestation_decision['evidence'] != expected_attestation:
             raise ProtocolError('attestation_binding', 'guardian attestation evidence mismatch')
         max_output_bytes = cerberus['evidence'].get('max_output_bytes')
         if not isinstance(max_output_bytes, int):

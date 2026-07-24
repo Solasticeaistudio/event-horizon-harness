@@ -28,7 +28,7 @@ The system must fail closed against:
 Run first:
 
 ```bash
-cd hardproof
+cd attestation
 npm install
 npm run build
 npm test
@@ -38,7 +38,7 @@ PYTHONPATH=src python -m unittest discover -s tests -v
 PYTHONPATH=src python -m event_horizon.demo
 ```
 
-Expected baseline: 7 HardProof tests and 13 Event Horizon tests passing.
+Expected baseline: 7 Executor Attestation tests and 13 Event Horizon tests passing.
 
 Do not remove or weaken tests to make changes pass.
 
@@ -48,7 +48,7 @@ Separate into independent OS processes:
 
 1. Neural Link Zero parser/canonicalizer
 2. Guardian quorum
-3. HardProof verifier
+3. Executor Attestation verifier
 4. Capability signer/broker
 5. Sacrificial executor
 6. External recorder
@@ -56,7 +56,7 @@ Separate into independent OS processes:
 
 Use a minimal length-prefixed canonical protocol. Avoid general HTTP in the trusted path. Reject unknown message types and fields. Add byte, nesting, deadline, and request-count limits.
 
-## Priority 2: complete HardProof TPM path
+## Priority 2: complete Executor Attestation TPM path
 
 Implement Linux TPM 2.0 support first:
 
@@ -72,11 +72,11 @@ Implement Linux TPM 2.0 support first:
 
 Do not silently fall back to simulator in production mode. Hardware failure must deny attestation.
 
-Keep HardProof authorization-free. It proves identity and measurements only.
+Keep Executor Attestation authorization-free. It proves identity and measurements only.
 
 ## Priority 3: bind attestation throughout authority
 
-The Event Horizon capability already contains a HardProof attestation digest. Extend this so the executor verifies:
+The Event Horizon capability already contains a Executor Attestation attestation digest. Extend this so the executor verifies:
 
 - attestation result digest;
 - executor/device ID;

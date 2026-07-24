@@ -3,6 +3,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 python -m pip install -e .
-cd hardproof
+cd attestation
 npm install
 npm run build

@@ -15,7 +15,7 @@ The original Event Horizon Harness v0.3 archive is preserved as commit `2d7143e`
 ## Verified commands
 
 ```bash
-cd hardproof
+cd attestation
 npm install
 npm run build
 npm test
@@ -26,7 +26,7 @@ PYTHONPATH=src python -m event_horizon.process_demo
 PYTHONPATH=src python -m event_horizon.nemesis_demo
 ```
 
-Expected without hardware: 16 HardProof tests pass, one real-TPM test skips, and all 36 Python tests pass.
+Expected without hardware: 16 Executor Attestation tests pass, one real-TPM test skips, and all 36 Python tests pass.
 
 ## Honest limitations
 
@@ -36,4 +36,4 @@ Expected without hardware: 16 HardProof tests pass, one real-TPM test skips, and
 - Production recorder/key administration must be physically or administratively outside the sacrificial host; the local demo represents that boundary with independent processes.
 - Normalized event-log checking is implemented, but production policy must provide and require a platform event log when available.
 
-Start with `README.md`, `docs/ARCHITECTURE.md`, `docs/THREAT_MODEL.md`, `docs/HARDPROOF_TPM.md`, `docs/FIRECRACKER.md`, and `docs/REPRODUCIBILITY.md`.
+Start with `README.md`, `docs/ARCHITECTURE.md`, `docs/THREAT_MODEL.md`, `docs/ATTESTATION_TPM.md`, `docs/FIRECRACKER.md`, and `docs/REPRODUCIBILITY.md`.

@@ -209,21 +209,21 @@ class ProcessSeparatedHarness:
         self.workdir.mkdir(parents=True, exist_ok=True)
         policy = self._policy_config()
         policy_digest = digest(policy)
-        simulator_seed = 'event-horizon-hardproof-rebuild'
+        simulator_seed = 'event-horizon-attestation-rebuild'
         measurement = hashlib.sha256(f'simulator:executor:{simulator_seed}'.encode()).hexdigest()
         verifier_policy_digest = digest({
-            'provider': 'hardproof-development-bridge',
+            'provider': 'attestation-development-bridge',
             'deviceId': 'exec-1',
             'minimumTrust': 'simulated',
             'expectedExecutorMeasurement': measurement,
         })
-        hardproof_root = self.repository_root / 'hardproof'
+        attestation_root = self.repository_root / 'attestation'
 
         try:
             self._start_role('parser', {})
             self._start_role(
                 'verifier',
-                {'hardproof_root': str(hardproof_root), 'device_seeds': {'exec-1': simulator_seed}},
+                {'attestation_root': str(attestation_root), 'device_seeds': {'exec-1': simulator_seed}},
             )
             self._start_role(
                 'guardians',

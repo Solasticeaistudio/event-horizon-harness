@@ -26,7 +26,7 @@ class PolicyGuardian:
 @dataclass
 class AttestationGuardian:
     provider: AttestationProvider
-    name: str = "hardproof"
+    name: str = "attestation"
 
     def evaluate(self, request: ActionRequest) -> GuardianDecision:
         try:

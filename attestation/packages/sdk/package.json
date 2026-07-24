@@ -1,0 +1,14 @@
+{
+  "name": "@event-horizon/attestation-sdk",
+  "version": "0.4.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {".": {"import": "./dist/index.js", "types": "./dist/index.d.ts"}},
+  "dependencies": {
+    "@event-horizon/attestation-core": "0.4.0",
+    "@event-horizon/attestation-simulator": "0.4.0",
+    "@event-horizon/attestation-tpm": "0.4.0"
+  },
+  "scripts": {"build": "tsc -b tsconfig.json --force"}
+}

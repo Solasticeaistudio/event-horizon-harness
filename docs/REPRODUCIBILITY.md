@@ -14,7 +14,7 @@ Use `git diff v0.3-baseline..HEAD` to review all hardening changes. The reposito
 
 ```bash
 python -m pip install -e .
-cd hardproof
+cd attestation
 npm install
 npm run build
 npm test
@@ -22,7 +22,7 @@ cd ..
 PYTHONPATH=src python -W error::ResourceWarning -m unittest discover -s tests -v
 ```
 
-Expected on a host without a real TPM: 16 passing HardProof tests plus one skipped real-TPM integration test, and 36 passing Event Horizon tests.
+Expected on a host without a real TPM: 16 passing Executor Attestation tests plus one skipped real-TPM integration test, and 36 passing Event Horizon tests.
 
 ## Demonstrations
 
@@ -35,4 +35,4 @@ python scripts/run_firecracker_demo.py --fallback process
 
 The process demo prints all seven process IDs, probes the hostile executor for credentials/private keys, proves one exact capability works once, proves replay/widening/egress fail, restarts the recorder, tears down the executor, and emits a signed certificate. The Nemesis demo must report all ten campaigns contained.
 
-See `docs/HARDPROOF_TPM.md` and `docs/FIRECRACKER.md` before making TPM or VM-isolation claims.
+See `docs/ATTESTATION_TPM.md` and `docs/FIRECRACKER.md` before making TPM or VM-isolation claims.

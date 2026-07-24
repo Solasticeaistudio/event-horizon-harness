@@ -74,7 +74,7 @@ def main() -> None:
             "authoritative_event_chain_intact": valid,
         },
     )
-    print("\n[6] External evidence chain, HardProof binding, and certificate")
+    print("\n[6] External evidence chain, Executor Attestation binding, and certificate")
     print(f"    chain valid: {valid}")
     print(f"    chain tip: {tip}")
     print(f"    certificate: {certificate_path}")

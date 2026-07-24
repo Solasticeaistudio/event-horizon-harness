@@ -59,18 +59,18 @@ class ContainmentCertificateBuilder:
         events = self.recorder.events()
         denied = sum(1 for event in events if event["event_type"] in {"request.denied", "execution.denied", "request.rejected"})
         completed = sum(1 for event in events if event["event_type"] == "execution.completed")
-        hardproof_decisions = [
+        attestation_decisions = [
             event for event in events
-            if event["event_type"] == "guardian.decision" and event["payload"].get("guardian") == "hardproof"
+            if event["event_type"] == "guardian.decision" and event["payload"].get("guardian") == "attestation"
         ]
         attestation_digests = sorted({
             event["payload"].get("evidence", {}).get("bundle_digest")
-            for event in hardproof_decisions
+            for event in attestation_decisions
             if event["payload"].get("evidence", {}).get("bundle_digest")
         })
         attestation_result_digests = sorted({
             event["payload"].get("evidence", {}).get("attestation_result_digest")
-            for event in hardproof_decisions
+            for event in attestation_decisions
             if event["payload"].get("evidence", {}).get("attestation_result_digest")
         })
         capability_events = [event for event in events if event["event_type"] == "capability.issued"]
@@ -117,8 +117,8 @@ class ContainmentCertificateBuilder:
             "event_chain_tip": tip,
             "completed_actions": completed,
             "denied_transitions": denied,
-            "hardproof_attestation_digests": attestation_digests,
-            "hardproof_attestation_result_digests": attestation_result_digests,
+            "attestation_bundle_digests": attestation_digests,
+            "attestation_result_digests": attestation_result_digests,
             "evidence": evidence,
             "assertions": dict(sorted(assertions.items())),
         }

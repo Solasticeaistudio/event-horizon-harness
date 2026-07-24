@@ -57,7 +57,7 @@ class NeuralLinkZero:
             self.recorder.append("request.denied", {"request_id": request.request_id})
             raise AuthorizationDenied("guardian veto")
 
-        attestation_decision = next(d for d in decisions if d.guardian == "hardproof")
+        attestation_decision = next(d for d in decisions if d.guardian == "attestation")
         measurement = str(attestation_decision.evidence["measurement"])
         device_id = str(attestation_decision.evidence["device_id"])
         attestation_digest = str(attestation_decision.evidence["attestation_result_digest"])

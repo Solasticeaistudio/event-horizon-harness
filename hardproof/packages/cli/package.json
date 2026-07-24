@@ -1,9 +1,0 @@
-{
-  "name": "@hardproof/cli",
-  "version": "0.2.0",
-  "type": "module",
-  "bin": {"hardproof": "./dist/index.js"},
-  "main": "./dist/index.js",
-  "scripts": {"build": "tsc -p tsconfig.json"},
-  "dependencies": {"@hardproof/sdk": "0.2.0", "@hardproof/simulator": "0.2.0"}
-}

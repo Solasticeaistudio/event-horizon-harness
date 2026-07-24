@@ -1,0 +1,9 @@
+{
+  "name": "@event-horizon/attestation-service",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {"build": "tsc -b tsconfig.json --force", "start": "node dist/server.js"},
+  "dependencies": {"@event-horizon/attestation-core": "0.4.0"}
+}

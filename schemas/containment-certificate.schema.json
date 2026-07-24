@@ -16,8 +16,8 @@
       "required": [
         "schema", "run_id", "session_id", "created_at", "event_count",
         "event_chain_valid", "event_chain_tip", "completed_actions",
-        "denied_transitions", "hardproof_attestation_digests",
-        "hardproof_attestation_result_digests", "evidence", "assertions"
+        "denied_transitions", "attestation_bundle_digests",
+        "attestation_result_digests", "evidence", "assertions"
       ],
       "properties": {
         "schema": {"const": "event-horizon.containment-certificate.v0.4"},
@@ -29,12 +29,12 @@
         "event_chain_tip": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "completed_actions": {"type": "integer", "minimum": 0},
         "denied_transitions": {"type": "integer", "minimum": 0},
-        "hardproof_attestation_digests": {
+        "attestation_bundle_digests": {
           "type": "array",
           "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "uniqueItems": true
         },
-        "hardproof_attestation_result_digests": {
+        "attestation_result_digests": {
           "type": "array",
           "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "uniqueItems": true
