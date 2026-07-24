@@ -1,0 +1,16 @@
+# Known limitations
+
+Event Horizon is a research harness, not a production containment system.
+
+- The execution cell is not yet a production Firecracker deployment. The process-separated path is the reproducible default; Linux/KVM integration remains a development target with host kernel, KVM, Firecracker, image, and watchdog assumptions.
+- TPM quote generation and independent verification remain incomplete for a production deployment. Synthetic fixtures and `swtpm` exercise code paths but do not establish physical hardware provenance, endorsement, fleet enrollment, or production measurement policy.
+- The Executor Attestation simulator does not constitute hardware attestation and can produce only development trust.
+- The evidence recorder is an independent logical process in the demo. It is not yet physically one-way or independently hosted, and a compromised host kernel remains inside the trusted computing base.
+- Nonce and capability consumption are atomic only within one verifier or broker process. No distributed Redis or transactional database backend ships.
+- Tests are currently authored by the project creator and automated tooling. They are not independent validation.
+- No claim is made that a frontier model has been contained. The demonstrations use deterministic synthetic actions and a harmless scripted adversary.
+- No external security audit has occurred.
+- The current certificate verifies claims over the recorder's evidence and configured teardown path; it does not make false evidence impossible when the recorder host or signing boundary is compromised.
+- Availability is intentionally sacrificed on verifier, signer, recorder, static-policy, guardian, or infrastructure failure.
+
+These limitations are security-relevant. Results should not be generalized beyond the tested topology and explicit trust assumptions.

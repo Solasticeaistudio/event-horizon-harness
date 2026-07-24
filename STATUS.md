@@ -32,6 +32,7 @@
 - Enforced required guardian identities, one response per guardian, canonical request binding, and consistent static-policy versions.
 - Converted guardian exceptions, malformed responses, missing responses, and timeouts into explicit veto decisions.
 - Added compromise-injection coverage and exact unanimity/veto semantics documentation.
+- Added the repository's existing proprietary license declaration, private security-reporting policy, safe red-team guide, known-limitations ledger, contribution guide, changelog, and citation metadata.
 
 ## Tests executed
 
@@ -89,7 +90,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Add public security, disclosure, contribution, red-team, citation, changelog, license, and limitations documents.
+Add GitHub Actions for clean Python, TypeScript, integration, artifact, secret, and security-regression checks.
 
 ## Exact next command
 

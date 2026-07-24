@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this research artifact, please cite it using this metadata."
+title: "Event Horizon: An Authority-Containment Research Harness"
+type: software
+version: 0.4.0
+date-released: 2026-07-24
+authors:
+  - family-names: Meister
+    given-names: Justin
+    affiliation: Solstice AI Studio
+repository-code: "https://github.com/Solasticeaistudio/event-horizon-harness"
+url: "https://github.com/Solasticeaistudio/event-horizon-harness"
+abstract: >-
+  A reproducible research harness for testing whether a fully compromised
+  autonomous-agent execution environment can convert local control into
+  transferable authority.
+keywords:
+  - AI security
+  - capability security
+  - attestation
+  - containment
+  - reproducible research
