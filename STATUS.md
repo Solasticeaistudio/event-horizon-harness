@@ -38,6 +38,7 @@
 - Added `make demo` and `scripts/demo.ps1` for a single process-separated containment demonstration with the required concise summary.
 - The demo now exercises fresh simulator attestation, exact capability use, replay, argument and executor transfer, prohibited egress, evidence tampering, verified teardown, and an independently verified live certificate.
 - Added a deterministic normalized reference result while keeping fresh per-run keys, nonces, timestamps, and digests out of version control.
+- Replaced the prototype README with a concise technical-review entry point, actual demo results, measured claim boundaries, functional architecture, verification commands, and CI badge.
 
 ## Tests executed
 
@@ -98,7 +99,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Rewrite the public README for frontier-lab technical review using measured claims and actual demo results.
+Add the bounded synthetic adversarial-runner interface and harmless scripted campaign manifest.
 
 ## Exact next command
 
