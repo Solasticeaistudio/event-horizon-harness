@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
+export type NonceStatus = 'valid' | 'unknown' | 'expired' | 'consumed';
+
 export class NonceStore {
   private readonly issued = new Map<string, number>();
   private readonly consumed = new Set<string>();
@@ -13,10 +15,17 @@ export class NonceStore {
   }
 
   consume(nonce: string): boolean {
-    const expiry = this.issued.get(nonce);
-    if (expiry === undefined || expiry < this.now() || this.consumed.has(nonce)) return false;
+    if (this.status(nonce) !== 'valid') return false;
     this.consumed.add(nonce);
     return true;
+  }
+
+  status(nonce: string): NonceStatus {
+    if (this.consumed.has(nonce)) return 'consumed';
+    const expiry = this.issued.get(nonce);
+    if (expiry === undefined) return 'unknown';
+    if (expiry < this.now()) return 'expired';
+    return 'valid';
   }
 
   isConsumed(nonce: string): boolean {

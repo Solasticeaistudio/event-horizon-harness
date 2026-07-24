@@ -50,3 +50,5 @@ export class TpmProver {
     });
   }
 }
+
+export * from './linux.js';

@@ -21,4 +21,5 @@ export declare class TpmProver {
         nonce: string;
     }): Promise<HardproofBundle>;
 }
+export * from './linux.js';
 //# sourceMappingURL=index.d.ts.map

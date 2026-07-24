@@ -31,6 +31,10 @@ export interface VerifierConfig {
     pcrPolicy?: Record<string, MeasurementRule>;
     deviceKeys?: Record<string, string>;
     allowUnregisteredSimulator?: boolean;
+    nonceTtlSeconds?: number;
+    tpmAkQualifiedNames?: Record<string, string>;
+    tpmPcrSelections?: Record<string, string[]>;
+    requireTpmEventLog?: boolean;
     now?: () => Date;
 }
 export interface VerificationSuccess {
@@ -47,7 +51,7 @@ export interface VerificationSuccess {
 export interface VerificationFailure {
     valid: false;
     failureReason: string;
-    failureCode: 'MALFORMED_BUNDLE' | 'NONCE_MISMATCH' | 'NONCE_REPLAY' | 'PROOF_REPLAY' | 'PROOF_EXPIRED' | 'PROOF_FROM_FUTURE' | 'PROOF_TOO_OLD' | 'UNKNOWN_DEVICE' | 'KEY_ID_MISMATCH' | 'INVALID_SIGNATURE' | 'TRUST_LEVEL_TOO_LOW' | 'MEASUREMENT_POLICY_FAILED' | 'UNSUPPORTED_METHOD';
+    failureCode: 'MALFORMED_BUNDLE' | 'NONCE_MISMATCH' | 'NONCE_UNKNOWN' | 'NONCE_EXPIRED' | 'NONCE_REPLAY' | 'PROOF_REPLAY' | 'PROOF_EXPIRED' | 'PROOF_FROM_FUTURE' | 'PROOF_TOO_OLD' | 'UNKNOWN_DEVICE' | 'KEY_ID_MISMATCH' | 'INVALID_SIGNATURE' | 'TRUST_LEVEL_TOO_LOW' | 'MEASUREMENT_POLICY_FAILED' | 'UNSUPPORTED_METHOD' | 'TPM_QUOTE_MALFORMED' | 'TPM_NONCE_MISMATCH' | 'TPM_AK_MISMATCH' | 'TPM_QUOTE_SIGNATURE' | 'TPM_PCR_SELECTION' | 'TPM_PCR_DIGEST' | 'TPM_EVENT_LOG';
     verifiedAt: string;
 }
 export type VerificationResult = VerificationSuccess | VerificationFailure;

@@ -41,4 +41,5 @@ export class TpmProver {
         });
     }
 }
+export * from './linux.js';
 //# sourceMappingURL=index.js.map

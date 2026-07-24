@@ -1,5 +1,6 @@
 import { canonicalBytes, keyIdFromPublicKey, sha256, verifyDetached } from '@hardproof/crypto';
 import { NonceStore } from './nonce-store.js';
+import { tpm2KeyIdFromPublicKey, verifyTpmQuote } from './tpm.js';
 const TRUST_ORDER = { simulated: 0, software: 1, hardware: 2 };
 function failure(code, reason, at) {
     return { valid: false, failureCode: code, failureReason: reason, verifiedAt: at.toISOString() };
@@ -25,7 +26,7 @@ export class Verifier {
         this.config = config;
         for (const [deviceId, key] of Object.entries(config.deviceKeys ?? {}))
             this.deviceKeys.set(deviceId, key);
-        this.nonceStore = new NonceStore(60);
+        this.nonceStore = new NonceStore(config.nonceTtlSeconds ?? 60, () => (this.config.now?.() ?? new Date()).valueOf());
     }
     registerDevice(deviceId, publicKeyPem) {
         if (!deviceId.trim())
@@ -34,7 +35,17 @@ export class Verifier {
     }
     verify(bundle, options) {
         const at = this.config.now?.() ?? new Date();
-        if (!bundle || bundle.version !== 'hp1' || !bundle.deviceId || !bundle.nonce || !bundle.signature) {
+        const bundleFields = ['deviceId', 'evidence', 'expiresAt', 'issuedAt', 'keyId', 'measurements', 'method', 'nonce', 'signature', 'version'];
+        if (!bundle
+            || JSON.stringify(Object.keys(bundle).sort()) !== JSON.stringify(bundleFields)
+            || bundle.version !== 'hp1'
+            || !bundle.deviceId
+            || !bundle.nonce
+            || !bundle.signature
+            || !bundle.measurements
+            || typeof bundle.measurements !== 'object'
+            || !bundle.evidence
+            || typeof bundle.evidence !== 'object') {
             return failure('MALFORMED_BUNDLE', 'bundle is missing required hp1 fields', at);
         }
         const trust = methodTrust(bundle.method);
@@ -58,33 +69,58 @@ export class Verifier {
         const bundleDigest = sha256(canonicalBytes(bundle));
         if (this.consumedProofs.has(bundleDigest))
             return failure('PROOF_REPLAY', 'proof bundle has already been accepted', at);
+        const nonceStatus = this.nonceStore.status(options.nonce);
+        if (nonceStatus === 'unknown')
+            return failure('NONCE_UNKNOWN', 'nonce was not issued by this verifier', at);
+        if (nonceStatus === 'expired')
+            return failure('NONCE_EXPIRED', 'verifier challenge has expired', at);
+        if (nonceStatus === 'consumed')
+            return failure('NONCE_REPLAY', 'nonce has already been consumed', at);
         let publicKeyPem = this.deviceKeys.get(bundle.deviceId);
         if (!publicKeyPem && bundle.method === 'simulator' && this.config.allowUnregisteredSimulator) {
             publicKeyPem = options.publicKeyPem;
         }
         if (!publicKeyPem)
             return failure('UNKNOWN_DEVICE', 'device is not registered with this verifier', at);
-        if (keyIdFromPublicKey(publicKeyPem) !== bundle.keyId)
-            return failure('KEY_ID_MISMATCH', 'bundle keyId does not match registered device key', at);
-        if (!verifyDetached(canonicalBytes(unsigned(bundle)), bundle.signature, publicKeyPem)) {
-            return failure('INVALID_SIGNATURE', 'proof signature is invalid', at);
+        let verifiedMeasurements = { ...bundle.measurements };
+        if (bundle.method === 'tpm2') {
+            if (tpm2KeyIdFromPublicKey(publicKeyPem) !== bundle.keyId) {
+                return failure('KEY_ID_MISMATCH', 'bundle keyId does not match registered TPM AK', at);
+            }
+            const quoteResult = verifyTpmQuote(bundle.evidence, bundle.signature, {
+                nonce: options.nonce,
+                publicKeyPem,
+                expectedQualifiedSigner: this.config.tpmAkQualifiedNames?.[bundle.deviceId],
+                expectedPcrSelection: this.config.tpmPcrSelections?.[bundle.deviceId],
+                requireEventLog: this.config.requireTpmEventLog,
+            });
+            if (!quoteResult.valid)
+                return failure(quoteResult.code, quoteResult.reason, at);
+            verifiedMeasurements = quoteResult.measurements;
+            if (!canonicalBytes(bundle.measurements).equals(canonicalBytes(verifiedMeasurements))) {
+                return failure('TPM_PCR_DIGEST', 'bundle measurements differ from independently verified PCRs', at);
+            }
+        }
+        else {
+            if (keyIdFromPublicKey(publicKeyPem) !== bundle.keyId) {
+                return failure('KEY_ID_MISMATCH', 'bundle keyId does not match registered device key', at);
+            }
+            if (!verifyDetached(canonicalBytes(unsigned(bundle)), bundle.signature, publicKeyPem)) {
+                return failure('INVALID_SIGNATURE', 'proof signature is invalid', at);
+            }
         }
         const requiredTrust = this.config.minTrustLevel ?? 'simulated';
         if (TRUST_ORDER[trust.trust] < TRUST_ORDER[requiredTrust]) {
             return failure('TRUST_LEVEL_TOO_LOW', `proof trust ${trust.trust} is below required ${requiredTrust}`, at);
         }
         for (const [register, rule] of Object.entries(this.config.pcrPolicy ?? {})) {
-            const actual = bundle.measurements[register];
+            const actual = verifiedMeasurements[register];
             const allowed = rule.type === 'exact' ? actual === rule.value : rule.values.includes(actual ?? '');
             if (!allowed)
                 return failure('MEASUREMENT_POLICY_FAILED', `measurement ${register} failed policy`, at);
         }
-        if (this.nonceStore.isConsumed(options.nonce))
-            return failure('NONCE_REPLAY', 'nonce has already been consumed', at);
-        // A nonce issued externally is still protected by proof replay. Locally issued nonces are consumed here.
-        const locallyIssued = this.nonceStore.consume(options.nonce);
-        if (!locallyIssued && this.nonceStore.isConsumed(options.nonce))
-            return failure('NONCE_REPLAY', 'nonce has already been consumed', at);
+        if (!this.nonceStore.consume(options.nonce))
+            return failure('NONCE_REPLAY', 'nonce could not be consumed', at);
         this.consumedProofs.add(bundleDigest);
         return {
             valid: true,
@@ -93,7 +129,7 @@ export class Verifier {
             trustLevel: trust.trust,
             assuranceLevel: trust.assurance,
             keyId: bundle.keyId,
-            measurements: { ...bundle.measurements },
+            measurements: verifiedMeasurements,
             bundleDigest,
             verifiedAt: at.toISOString(),
         };

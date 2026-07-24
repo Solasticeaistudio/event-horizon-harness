@@ -14,11 +14,20 @@ export class NonceStore {
         return nonce;
     }
     consume(nonce) {
-        const expiry = this.issued.get(nonce);
-        if (expiry === undefined || expiry < this.now() || this.consumed.has(nonce))
+        if (this.status(nonce) !== 'valid')
             return false;
         this.consumed.add(nonce);
         return true;
+    }
+    status(nonce) {
+        if (this.consumed.has(nonce))
+            return 'consumed';
+        const expiry = this.issued.get(nonce);
+        if (expiry === undefined)
+            return 'unknown';
+        if (expiry < this.now())
+            return 'expired';
+        return 'valid';
     }
     isConsumed(nonce) {
         return this.consumed.has(nonce);
