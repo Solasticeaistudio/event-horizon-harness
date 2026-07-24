@@ -1,56 +1,31 @@
 # Event Horizon Harness v0.3
 
-Event Horizon is a compromise-tolerant containment research harness for autonomous agents.
+Event Horizon is a compromise-tolerant authority-containment research harness. Its non-negotiable claim is:
 
-Its central claim is intentionally narrower and stronger than “the sandbox cannot be escaped”:
+> Root or total compromise inside the hostile execution cell must not create transferable authority outside it.
 
-> Complete compromise of the agent workload must not grant transferable authority, unrestricted egress, durable persistence, cross-session influence, or control over authoritative evidence.
+The original v0.3 archive is preserved by Git commit `2d7143e` and annotated tag `v0.3-baseline`. The current working line hardens that baseline without removing or weakening its tests.
 
-v0.3 combines the original authority-containment prototype with a clean-room rebuild of **HardProof**, the hardware-attestation SDK whose original repository was lost.
+## Implemented research harness
 
-## What works now
+- Seven independent OS processes: parser/canonicalizer, HardProof verifier, guardian quorum, signer/broker, sacrificial executor, external recorder, and certificate builder.
+- A four-byte, big-endian, length-prefixed canonical JSON protocol with allowlisted messages and fields plus byte, string, collection, nesting, deadline, and request-count limits.
+- One-use Ed25519 capabilities bound to the exact request, session, executor/device, image measurement, verified attestation result, verifier policy, static policy, and signer key ID.
+- Signer isolation: only the signer process receives the capability private key; the executor receives its public key.
+- An external evidence plane with sequence numbers, hash chaining, signed receipts, gap detection, restart recovery, and fail-closed tamper behavior.
+- Signed evidence-complete Containment Certificates covering attestation, capability, policy, image, recorder, teardown, and egress.
+- Independent TPM 2.0 quote parsing and verification, explicit Linux AK provisioning/loading, verifier nonces, PCR reconstruction, normalized event-log checking, and negative fixtures.
+- A route-less Firecracker development target with a read-only rootfs, ephemeral scratch disk, no NIC or MMDS, fixed vsock, and an external teardown watchdog.
+- Ten synthetic-only Nemesis campaigns. Fixtures use `synthetic://` endpoints and `EH-HONEY-*` tokens; Black Hole mode has no unrestricted connectors.
 
-### Event Horizon
+## Verified status
 
-- Strict typed action requests with unknown-field rejection
-- Neural Link Zero with no direct execution authority
-- Deny-by-default Cerberus policy evaluation
-- Guardian quorum where any veto blocks
-- Aegis lineage-wide request and denial budgets
-- Talos prohibited-transition vetoes
-- Ed25519-signed, short-lived, one-use capabilities
-- Exact binding to session, agent, executor, operation, resource, arguments, policy, executor measurement, and HardProof attestation digest
-- Replay, widening, cross-session, cross-executor, expiry, malformed-request, permissive-guardian, and recorder-tampering tests
-- External append-only hash-chained recorder
-- Ed25519-signed Containment Certificate
-- Synthetic honey credential and assumed-root demonstration
+- 36 Python Event Horizon tests pass, including every original test.
+- 16 Node HardProof tests pass; the 17th real-TPM test is skipped unless explicitly enabled.
+- The original baseline remains reproducible: 13 Python tests and 7 HardProof tests at `v0.3-baseline`.
+- The opt-in Linux `swtpm` command-path run passes all 17 HardProof tests; it validates integration but is explicitly not hardware provenance.
 
-### HardProof rebuild
-
-- TypeScript monorepo with `crypto`, `core`, `simulator`, `prover-tpm`, `sdk`, `middleware`, `cli`, and development `cloud` packages
-- Deterministic simulator prover
-- Ed25519 proof signatures and canonical bundles
-- Device-key registry
-- Nonce issuance and one-time consumption
-- Proof replay detection
-- Freshness and expiry checks
-- Exact PCR-style measurement policies
-- Local `Client.prove()` and `Server.verify()` APIs
-- Typed events and actionable `HardproofError` values
-- Bundle encoding and middleware
-- Event Horizon development verifier bridge
-
-## Verified test status
-
-- **13 Python Event Horizon tests passing**
-- **7 Node HardProof tests passing**
-- **20 total tests passing**
-
-See `TEST_RESULTS.txt` and `hardproof/TEST_RESULTS.txt`.
-
-## Run the complete harness
-
-### Linux/macOS
+## Reproduce
 
 ```bash
 python -m pip install -e .
@@ -59,41 +34,14 @@ npm install
 npm run build
 npm test
 cd ..
-PYTHONPATH=src python -m unittest discover -s tests -v
+PYTHONPATH=src python -W error::ResourceWarning -m unittest discover -s tests -v
 PYTHONPATH=src python -m event_horizon.demo
+PYTHONPATH=src python -m event_horizon.process_demo
+PYTHONPATH=src python -m event_horizon.nemesis_demo
 ```
 
-### Windows PowerShell
+On PowerShell, set `$env:PYTHONPATH = "src"` before the Python commands. See [Reproducibility](docs/REPRODUCIBILITY.md), [TPM integration](docs/HARDPROOF_TPM.md), and [Firecracker target](docs/FIRECRACKER.md) for hardware-specific runs.
 
-```powershell
-python -m pip install -e .
-Set-Location hardproof
-npm install
-npm run build
-npm test
-Set-Location ..
-$env:PYTHONPATH = "src"
-python -m unittest discover -s tests -v
-python -m event_horizon.demo
-```
+## Claim boundary
 
-Precompiled JavaScript and a minimal vendored runtime are included so the development HardProof bridge can run immediately. Rebuilding TypeScript requires `npm install`.
-
-## Important limits
-
-This package does **not yet claim hardware isolation or production TPM attestation**.
-
-The current HardProof path uses a deterministic simulator with real asymmetric signatures, freshness, replay protection, and measurement policy. The TPM package detects hardware and defines the provider boundary, but deliberately fails closed until platform-specific quote generation and independent quote verification are completed.
-
-The execution cell is still simulated. The next major stage is a route-less Firecracker cell, separate verifier/signer/recorder processes, and a Nemesis-driven synthetic escape range.
-
-## Start here tomorrow
-
-Give Codex the repository and the contents of:
-
-- `docs/CODEX_LAUNCH_PROMPT.md`
-- `docs/CODEX_HANDOFF.md`
-- `hardproof/docs/REBUILD_STATUS.md`
-- `hardproof/docs/EVENT_HORIZON_INTEGRATION.md`
-
-The immediate target is to turn this process-level proof into an independently separated containment system without weakening the existing 20-test baseline.
+The process-separated demo proves authority separation and fail-closed behavior, not VM isolation. The Firecracker runner claims hardware isolation only after a real Linux KVM launch succeeds and the external watchdog records teardown. `swtpm` exercises the real TPM command path but is not hardware-rooted. Hardware or tool failure never falls back silently; it denies attestation. HardProof supplies identity and measurement evidence only and never authorizes an action.

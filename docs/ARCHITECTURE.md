@@ -1,63 +1,60 @@
-# Architecture — v0.3
+# Architecture and trusted computing base
+
+## Process topology
 
 ```text
-Model / agent loop (untrusted)
-            |
-            | typed proposed intent
-            v
-Neural Link Zero (canonicalization only)
-            |
-            v
-Independent guardian quorum
-  Cerberus  — static policy veto
-  HardProof — nonce-bound identity and executor measurement veto
-  Aegis     — lineage-wide budget veto
-  Talos     — suspicious-transition veto
-            |
-            | exact, one-use capability
-            v
-Sacrificial executor
-  pre-registered operation implementations only
-            |
-            | fixed result envelope
-            v
-Sanitized result channel
+hostile request
+      |
+      v
+Neural Link Zero parser ----> HardProof verifier
+      |                              |
+      +--------> guardian quorum <---+
+                         |
+                         v
+                 signer / broker
+                         |
+                 exact capability
+                         v
+                sacrificial executor
 
-One-way side plane:
-  every request, decision, capability, denial, and result
-            -> external hash-chained recorder
-            -> Containment Certificate
+Every transition ----> external recorder ----> certificate builder
 ```
 
-## Why this is not the original Neural Link
+Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes communicate over stdin/stdout pipes using the same minimal protocol: four-byte big-endian length followed by canonical UTF-8 JSON. The protocol rejects duplicate keys, noncanonical encodings, unknown message types or fields, excessive bytes, strings, collections or nesting, expired deadlines, and excess requests.
 
-The original Neural Link correctly centralized action mediation, capability checks, rate limits, circuit breakers, simulation, and observability. It also supported dynamic real-tool registration, callable handlers, live/simulation mode switching, and direct execution. Those are useful platform features but too much authority for a frontier containment TCB.
+## Authority flow
 
-Neural Link Zero therefore:
+1. Neural Link Zero parses and canonicalizes a typed request. It has no tool registry, signing key, network client, or execution authority.
+2. HardProof verifies a verifier-issued one-time nonce, registered device/AK identity, signed measurement evidence, freshness, PCR selection, and policy. It returns evidence, never authorization.
+3. The guardian quorum evaluates static policy, budgets, suspicious transitions, and attestation. One permissive guardian cannot override another veto or widen static policy.
+4. The broker asks the isolated signer to mint a short-lived capability for the exact canonical request digest.
+5. The executor accepts only the public verification key and rechecks every binding before one pre-registered operation. Redemption state outside the executor prevents replay after executor compromise.
+6. The external recorder returns a signed receipt for every fixed-size event envelope. The certificate builder signs a certificate only after recorder verification and verified teardown.
 
-- has no tool registry;
-- has no callable handlers;
-- cannot switch into a live mode;
-- contains no network client;
-- contains no secrets;
-- cannot mint authority by itself;
-- cannot execute the requested operation.
+## Capability bindings
 
-## Physical target topology
+The capability commits to request ID and digest, session and agent, operation/resource/arguments, executor and device ID, image/measurement digest, HardProof bundle and result digests, verifier-policy digest, static-policy digest, signer key ID, expiry, one-use invocation count, and maximum output bytes.
 
-The production Black Hole tier becomes:
+## Trusted computing base inventory
 
-```text
-Hostile route-less bare-metal island
-  -> fixed protocol / data diode
-  -> quarantine receiver
-  -> separately administered guardian and signing appliance
-  -> separately administered evidence store
-```
+| Component | Trusted for | Explicitly lacks |
+|---|---|---|
+| Protocol codec/schema | Canonical parsing and bounds | Policy, keys, execution |
+| HardProof verifier | Identity and measurement decision | Authorization and capability key |
+| Static guardian/quorum coordinator | Subtractive policy and veto combination | Execution and signing key |
+| Signer/broker | Exact capability minting and redemption state | Workload code and arbitrary connectors |
+| Executor verifier/dispatcher | Binding checks and fixed operations | Capability private key and ambient credentials |
+| External recorder | Ordered authoritative evidence and receipts | Workload execution authority |
+| Certificate builder | Final evidence-domain validation and signature | Capability minting and workload access |
+| Firecracker, host kernel, KVM, guest image, watchdog | Hardware cell isolation and teardown in KVM mode | External service credentials |
+| TPM, AK, `tpm2-tools`, HardProof parser | Hardware identity/measurement evidence in TPM mode | Action authorization |
 
-The sacrificial host is not a Kubernetes worker, has no cloud role, no BMC path reachable from the workload side, no adjacent tenants, and no management route during execution.
+The model, hostile executor contents, synthetic services, local audit decoy, model-based guardian, and human-facing output are untrusted. Development deployments currently run the seven trusted processes on one host; distinct processes reduce key exposure and confused-deputy paths but do not make a compromised host kernel trustworthy.
 
+## Firecracker cell
 
-## v0.3 implemented development path
+The Linux/KVM target has a read-only minimal rootfs, a per-run scratch image, no package manager, no host mounts, no NIC, no MMDS/metadata endpoint, and one fixed vsock protocol. An external watchdog terminates the VM and invalidates then deletes scratch/configuration. If KVM or required artifacts are missing, the default behavior is denial. The explicit process fallback writes `hardware_isolation_claimed: false`.
 
-The HardProof simulator now produces a nonce-bound Ed25519 proof. A separately invoked verifier checks device registration, signature, freshness, replay state, and measurement policy. The resulting bundle digest is recorded and included in Event Horizon capability claims. This is a development separation boundary, not yet a hardware or process-isolation claim.
+## Evidence and certificate
+
+Events carry global and per-source sequence numbers and a previous-hash link. Recorder receipts are Ed25519 signed. Startup validates the persisted chain before accepting another event; loss, reordering, mutation, and source gaps deny further recording. The certificate contains or hashes all seven required evidence domains and can be verified with only its public key.

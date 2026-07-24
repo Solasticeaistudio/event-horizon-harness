@@ -1,18 +1,15 @@
-test_argument_widening_is_denied_by_policy (test_authority.AuthorityTests.test_argument_widening_is_denied_by_policy) ... ok
-test_capability_cannot_be_widened_after_issue (test_authority.AuthorityTests.test_capability_cannot_be_widened_after_issue) ... ok
-test_cross_executor_use_is_denied (test_authority.AuthorityTests.test_cross_executor_use_is_denied) ... ok
-test_cross_session_use_is_denied (test_authority.AuthorityTests.test_cross_session_use_is_denied) ... ok
-test_exact_capability_succeeds_once (test_authority.AuthorityTests.test_exact_capability_succeeds_once) ... ok
-test_expired_capability_is_denied (test_authority.AuthorityTests.test_expired_capability_is_denied) ... ok
-test_one_permissive_guardian_cannot_widen_policy (test_authority.AuthorityTests.test_one_permissive_guardian_cannot_widen_policy) ... ok
-test_prohibited_operation_is_denied (test_authority.AuthorityTests.test_prohibited_operation_is_denied) ... ok
-test_recorder_tampering_is_detected (test_authority.AuthorityTests.test_recorder_tampering_is_detected) ... ok
-test_replay_is_denied (test_authority.AuthorityTests.test_replay_is_denied) ... ok
-test_unknown_request_field_is_rejected (test_authority.AuthorityTests.test_unknown_request_field_is_rejected) ... ok
-test_certificate_is_ed25519_signed_and_binds_attestation (test_hardproof_integration.HardProofIntegrationTests.test_certificate_is_ed25519_signed_and_binds_attestation) ... ok
-test_guardian_records_verified_hardproof_evidence (test_hardproof_integration.HardProofIntegrationTests.test_guardian_records_verified_hardproof_evidence) ... ok
+Event Horizon verification record
+Date: 2026-07-24
 
-----------------------------------------------------------------------
-Ran 13 tests in 0.544s
+Command:
+  PYTHONPATH=src python -W error::ResourceWarning -m unittest discover -s tests -v
 
-OK
+Result:
+  Ran 36 tests
+  OK
+
+Coverage includes the original 13-test v0.3 suite plus strict protocol bounds,
+seven independent service processes, authority/attestation substitution,
+signer/verifier outages, recorder receipts/restart/tampering/fixed envelopes,
+evidence-complete certificates, Firecracker configuration/fallback/watchdog
+confinement, output pressure, and ten synthetic-only Nemesis campaigns.
