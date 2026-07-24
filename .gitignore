@@ -1,9 +1,41 @@
+# Python
 __pycache__/
-*.pyc
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
 .venv/
-dist/
-build/
+**/.venv/
 *.egg-info/
+**/*.egg-info/
+
+# Node and TypeScript
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+coverage/
+**/coverage/
+.nyc_output/
+**/.nyc_output/
+*.tsbuildinfo
+*.log
+
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+
+# Test and demo output
 .demo/
 coverage.xml
 .coverage
+
+# Internal development material is not part of the public artifact
+internal/
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db

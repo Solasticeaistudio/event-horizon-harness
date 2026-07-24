@@ -7,6 +7,8 @@
 - Added architecture, threat-model, verification, and concise renaming documents.
 - Removed tracked generated JavaScript build products and the tracked dependency tree encountered during the namespace migration.
 - Regenerated the attestation lockfile with only current workspace paths.
+- Removed archived ZIP/checksum releases, generated output snapshots, stale source inventories, recovered build notes, and AI-development handoff material from the public tree.
+- Expanded the root ignore policy across all Python and Node workspaces, local environment files, coverage output, and internal development material.
 
 ## Tests executed
 
@@ -14,6 +16,7 @@
 - `npm test` in `attestation/`: 16 passed, 1 skipped (opt-in real TPM).
 - `eh-attest prove`, `eh-attest verify`, `eh-attest inspect`: passed.
 - `python -m unittest discover -s tests -v`: 36 passed.
+- Tracked-artifact and public-reader-path audits: passed.
 
 ## Known failures
 
@@ -34,6 +37,7 @@
 - `docs/ATTESTATION_VERIFICATION.md`
 - `docs/RENAMING_NOTES.md`
 - Python integration, certificate schema, scripts, and active documentation references
+- Root `.gitignore` and removal of obsolete public-tree debris
 - `STATUS.md`
 
 ## Commands to reproduce
@@ -49,10 +53,10 @@ python -m unittest discover -s tests -v
 
 ## Next engineering milestone
 
-Remove remaining generated artifacts, release archives, stale inventories, and internal AI-development material from the public reader path.
+Move the npm workspace manifest and lockfile to the repository root, add clean-install verification scripts, and generate the CycloneDX SBOM.
 
 ## Exact next command
 
 ```powershell
-git ls-files | Select-String -Pattern 'node_modules|__pycache__|\.pyc$|dist/|build/|\.zip$'
+git mv attestation/package.json package.json
 ```

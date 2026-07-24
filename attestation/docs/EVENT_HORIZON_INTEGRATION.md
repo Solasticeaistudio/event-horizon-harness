@@ -36,7 +36,3 @@ Executor Attestation must never:
 - mint Event Horizon capability tokens;
 - hold model prompts or agent memory;
 - share a private signing key with the hostile executor.
-
-## Codex target
-
-Replace the current static Python `AttestationGuardian` with a verifier service client using a fixed local protocol. Do not use general HTTP inside the final trusted path. A development HTTP bridge may exist outside the TCB.
