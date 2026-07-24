@@ -1,0 +1,42 @@
+{
+  "captured_on": "2026-07-24",
+  "environment": {
+    "firecracker_version": "1.15.1",
+    "host_kernel": "6.6.87.2-microsoft-standard-WSL2",
+    "mode": "nested-kvm-development",
+    "production_jailer_claimed": false
+  },
+  "evidence": {
+    "configuration_digest": "aa2feadae9ca5e33e758dbd749adff9713132eb77e97efd145cf44c0e1d4c6fa",
+    "egress": {
+      "metadata_configured": false,
+      "network_interfaces": 0,
+      "unrestricted_connectors": 0
+    },
+    "hardware_isolation_claimed": true,
+    "isolation_mode": "firecracker-kvm",
+    "kernel_sha256": "e20e46d0c36c55c0d1014eb20576171b3f3d922260d9f792017aeff53af3d4f2",
+    "root_probe": {
+      "authority_environment": 0,
+      "authority_files": 0,
+      "package_manager": false,
+      "uid": 0
+    },
+    "rootfs_read_only": true,
+    "rootfs_sha256": "51bee01283d4ad6920412b5e2dd2adea9c3761149694bdcbfb6a10ca4a9e3262",
+    "teardown": {
+      "config_destroyed": true,
+      "forced_termination": false,
+      "process_stopped": true,
+      "scratch_destroyed": true,
+      "vsock_removed": true
+    },
+    "vsock_protocol": "fixed-length-prefixed-v1"
+  },
+  "schema": "event-horizon.firecracker-run-fixture.v1",
+  "supply_chain": {
+    "firecracker_release_sha256": "d4a32ab2322d887ca1bc4a4e7afa9cc35393e6362dfc2b3becb389d362e4275a",
+    "kernel_s3_etag_md5": "44d1aea84475e5bed0dd4f27ddfca550",
+    "kernel_source": "firecracker-ci/v1.15/x86_64/vmlinux-6.1.155"
+  }
+}
