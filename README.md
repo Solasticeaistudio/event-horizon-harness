@@ -1,5 +1,7 @@
 # Event Horizon Harness v0.3
 
+[![CI](https://github.com/Solasticeaistudio/event-horizon-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/Solasticeaistudio/event-horizon-harness/actions/workflows/ci.yml)
+
 Event Horizon is a compromise-tolerant authority-containment research harness. Its non-negotiable claim is:
 
 > Root or total compromise inside the hostile execution cell must not create transferable authority outside it.

@@ -23,4 +23,6 @@ python -m pip install --disable-pip-version-check -e .
 npm run build
 npm test
 npm run demo
+python scripts/verify_capability_vectors.py
 python scripts/verify_certificate.py examples/reference-run/containment-certificate.json
+python scripts/check_repository_policy.py

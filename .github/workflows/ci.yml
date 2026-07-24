@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python 3.11
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install project
+        run: python -m pip install --disable-pip-version-check -e .
+      - name: Lint Python sources
+        run: python scripts/lint_python.py
+      - name: Run Python tests
+        run: python -m unittest discover -s tests -v
+      - name: Verify fixed capability vectors
+        run: python scripts/verify_capability_vectors.py
+
+  typescript:
+    name: TypeScript / Node 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install from lockfile
+        run: npm ci
+      - name: Build all workspaces
+        run: npm run build
+      - name: Type check all workspaces
+        run: npm run typecheck
+      - name: Run TypeScript tests
+        run: npm run test:typescript
+
+  integration:
+    name: Integration and repository policy
+    runs-on: ubuntu-latest
+    needs: [python, typescript]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Clean installs
+        run: |
+          npm ci
+          python -m pip install --disable-pip-version-check -e .
+      - name: Build integration dependencies
+        run: npm run build
+      - name: Run process-separated demonstration
+        run: python -m event_horizon.process_demo --workdir "$RUNNER_TEMP/event-horizon-integration"
+      - name: Verify generated evidence chain
+        run: python scripts/verify_evidence_chain.py "$RUNNER_TEMP/event-horizon-integration/external-evidence/events.jsonl"
+      - name: Verify generated containment certificate
+        run: python scripts/verify_certificate.py "$RUNNER_TEMP/event-horizon-integration/containment-certificate-v0.4.json"
+      - name: Verify selected fixed vectors
+        run: python scripts/verify_capability_vectors.py test-vectors/valid-capability.json test-vectors/replayed-capability.json test-vectors/unknown-field.json test-vectors/invalid-signature.json
+      - name: Enforce tracked-artifact and secret policy
+        run: python scripts/check_repository_policy.py

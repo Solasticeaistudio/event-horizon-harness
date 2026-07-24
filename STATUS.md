@@ -33,6 +33,8 @@
 - Converted guardian exceptions, malformed responses, missing responses, and timeouts into explicit veto decisions.
 - Added compromise-injection coverage and exact unanimity/veto semantics documentation.
 - Added the repository's existing proprietary license declaration, private security-reporting policy, safe red-team guide, known-limitations ledger, contribution guide, changelog, and citation metadata.
+- Added clean Python, TypeScript, integration, evidence, certificate, fixed-vector, and repository-policy GitHub Actions jobs.
+- Added dependency-free Python linting plus tracked-artifact, private-key, large-file, environment-file, archive, and stale-name enforcement.
 
 ## Tests executed
 
@@ -48,6 +50,8 @@
 - Fresh-attestation regression: 42 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 37 Python tests passed.
 - Capability hardening regression: 51 Python tests passed, including all 8 fixed public vectors.
 - Guardian compromise regression: 60 Python tests passed.
+- CI-equivalent integration run: process-separated demo, generated evidence chain, generated certificate, and selected fixed vectors passed.
+- Repository lint/policy checks: 38 tracked Python files and 138 tracked repository paths passed.
 
 ## Known failures
 
@@ -90,7 +94,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Add GitHub Actions for clean Python, TypeScript, integration, artifact, secret, and security-regression checks.
+Create the reproducible single-command containment demo and deterministic reference run.
 
 ## Exact next command
 

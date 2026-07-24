@@ -24,8 +24,12 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "tests failed" }
         npm run demo
         if ($LASTEXITCODE -ne 0) { throw "demo failed" }
+        python scripts/verify_capability_vectors.py
+        if ($LASTEXITCODE -ne 0) { throw "capability vector verification failed" }
         python scripts/verify_certificate.py examples/reference-run/containment-certificate.json
         if ($LASTEXITCODE -ne 0) { throw "certificate verification failed" }
+        python scripts/check_repository_policy.py
+        if ($LASTEXITCODE -ne 0) { throw "repository policy check failed" }
     }
     finally {
         Pop-Location
