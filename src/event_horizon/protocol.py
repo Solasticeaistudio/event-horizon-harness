@@ -4,6 +4,7 @@ import json
 import math
 import struct
 import time
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, BinaryIO, Callable, Mapping
 
@@ -47,10 +48,12 @@ def validate_value(value: Any, *, depth: int = 0) -> None:
             raise ProtocolError('number_limit', 'integer exceeds interoperable range')
         return
     if isinstance(value, float):
-        if not math.isfinite(value):
-            raise ProtocolError('invalid_number', 'non-finite number rejected')
+        if not math.isfinite(value) or (value == 0 and math.copysign(1.0, value) < 0):
+            raise ProtocolError('invalid_number', 'non-finite numbers and negative zero are rejected')
         return
     if isinstance(value, str):
+        if unicodedata.normalize('NFC', value) != value:
+            raise ProtocolError('unicode_normalization', 'strings must already be Unicode NFC')
         if len(value.encode('utf-8')) > MAX_STRING_BYTES:
             raise ProtocolError('string_limit', 'string byte limit exceeded')
         return

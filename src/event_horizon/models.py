@@ -1,13 +1,57 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, asdict
+from types import MappingProxyType
 from typing import Any, Mapping
 
-from .canonical import digest
+from .canonical import CanonicalizationError, canonical_bytes, digest
 
 
 class ValidationError(ValueError):
     pass
+
+
+_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+_KEY_ID_RE = re.compile(r"^ed25519:[0-9a-f]{32}$")
+_CAPABILITY_ID_RE = re.compile(r"^cap_[0-9a-f]{24}$")
+
+
+def _validated_text(value: Any, name: str, maximum: int) -> str:
+    if not isinstance(value, str) or not value or len(value.encode("utf-8")) > maximum:
+        raise ValidationError(f"{name} must be a non-empty string <= {maximum} UTF-8 bytes")
+    try:
+        canonical_bytes(value)
+    except CanonicalizationError as exc:
+        raise ValidationError(f"{name} is not canonical: {exc}") from exc
+    return value
+
+
+def _freeze_json(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_json(item) for item in value)
+    return value
+
+
+def _validate_security_json(value: Any) -> None:
+    if isinstance(value, float):
+        raise ValidationError("floating-point request values are not permitted")
+    if isinstance(value, Mapping):
+        for item in value.values():
+            _validate_security_json(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _validate_security_json(item)
+
+
+def _thaw_json(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _thaw_json(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_json(item) for item in value]
+    return value
 
 
 @dataclass(frozen=True)
@@ -26,27 +70,32 @@ class ActionRequest:
         "executor_id", "arguments", "purpose"
     })
 
+    def __post_init__(self) -> None:
+        for name in ("request_id", "session_id", "agent_id", "operation", "resource_id", "executor_id"):
+            _validated_text(getattr(self, name), name, 256)
+        if not isinstance(self.purpose, str) or len(self.purpose.encode("utf-8")) > 1024:
+            raise ValidationError("purpose must be a string <= 1024 UTF-8 bytes")
+        try:
+            canonical_bytes(self.purpose)
+            canonical_bytes(self.arguments)
+        except CanonicalizationError as exc:
+            raise ValidationError(f"request is not canonical: {exc}") from exc
+        if not isinstance(self.arguments, Mapping):
+            raise ValidationError("arguments must be an object")
+        _validate_security_json(self.arguments)
+        object.__setattr__(self, "arguments", _freeze_json(self.arguments))
+
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ActionRequest":
         if not isinstance(payload, Mapping):
             raise ValidationError("request must be an object")
         unknown = set(payload) - cls.ALLOWED_FIELDS
-        if unknown:
-            raise ValidationError(f"unknown fields: {sorted(unknown)}")
-        required = cls.ALLOWED_FIELDS - {"arguments", "purpose"}
-        missing = [key for key in required if not payload.get(key)]
-        if missing:
-            raise ValidationError(f"missing required fields: {sorted(missing)}")
-        arguments = payload.get("arguments", {})
+        missing = cls.ALLOWED_FIELDS - set(payload)
+        if unknown or missing:
+            raise ValidationError(f"invalid request fields; unknown={sorted(unknown)}, missing={sorted(missing)}")
+        arguments = payload["arguments"]
         if not isinstance(arguments, Mapping):
             raise ValidationError("arguments must be an object")
-        for key in ("request_id", "session_id", "agent_id", "operation", "resource_id", "executor_id"):
-            value = payload[key]
-            if not isinstance(value, str) or len(value) > 256:
-                raise ValidationError(f"{key} must be a non-empty string <= 256 characters")
-        purpose = payload.get("purpose", "")
-        if not isinstance(purpose, str) or len(purpose) > 1024:
-            raise ValidationError("purpose must be a string <= 1024 characters")
         return cls(
             request_id=payload["request_id"],
             session_id=payload["session_id"],
@@ -54,8 +103,8 @@ class ActionRequest:
             operation=payload["operation"],
             resource_id=payload["resource_id"],
             executor_id=payload["executor_id"],
-            arguments=dict(arguments),
-            purpose=purpose,
+            arguments=arguments,
+            purpose=payload["purpose"],
         )
 
     def canonical_payload(self) -> dict[str, Any]:
@@ -66,7 +115,7 @@ class ActionRequest:
             "operation": self.operation,
             "resource_id": self.resource_id,
             "executor_id": self.executor_id,
-            "arguments": dict(self.arguments),
+            "arguments": _thaw_json(self.arguments),
             "purpose": self.purpose,
         }
 
@@ -81,13 +130,14 @@ class GuardianDecision:
     allowed: bool
     reason: str
     evidence: Mapping[str, Any] = field(default_factory=dict)
+    request_digest: str = ""
 
 
 @dataclass(frozen=True)
 class CapabilityClaims:
     capability_id: str
-    issued_at: float
-    expires_at: float
+    issued_at: int
+    expires_at: int
     session_id: str
     agent_id: str
     executor_id: str
@@ -113,6 +163,30 @@ class CapabilityClaims:
         'invocation_limit', 'policy_digest', 'signer_key_id',
     })
 
+    def __post_init__(self) -> None:
+        if not _CAPABILITY_ID_RE.fullmatch(self.capability_id):
+            raise ValidationError("capability_id is malformed")
+        for name in (
+            "session_id", "agent_id", "executor_id", "device_id", "operation", "resource_id",
+        ):
+            _validated_text(getattr(self, name), name, 256)
+        for name in (
+            "executor_measurement", "attestation_digest", "attestation_bundle_digest",
+            "verifier_policy_digest", "arguments_digest", "request_digest", "policy_digest",
+        ):
+            if not isinstance(getattr(self, name), str) or not _DIGEST_RE.fullmatch(getattr(self, name)):
+                raise ValidationError(f"{name} must be a lowercase SHA-256 digest")
+        if not isinstance(self.signer_key_id, str) or not _KEY_ID_RE.fullmatch(self.signer_key_id):
+            raise ValidationError("signer_key_id is malformed")
+        if type(self.issued_at) is not int or type(self.expires_at) is not int:
+            raise ValidationError("capability timestamps must be integer Unix milliseconds")
+        if not 0 < self.expires_at - self.issued_at <= 300_000:
+            raise ValidationError("capability lifetime is invalid")
+        if type(self.max_output_bytes) is not int or not 0 < self.max_output_bytes <= 1_048_576:
+            raise ValidationError("invalid capability output limit")
+        if type(self.invocation_limit) is not int or self.invocation_limit != 1:
+            raise ValidationError("only one-use capabilities are supported")
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -131,13 +205,6 @@ class CapabilityClaims:
         }
         if any(not isinstance(payload[name], str) or not payload[name] for name in string_fields):
             raise ValidationError('capability string claims must be non-empty strings')
-        if not isinstance(payload['issued_at'], (int, float)) or not isinstance(payload['expires_at'], (int, float)):
-            raise ValidationError('capability timestamps must be numbers')
-        output_limit = payload['max_output_bytes']
-        if not isinstance(output_limit, int) or not 0 < output_limit <= 1_048_576:
-            raise ValidationError('invalid capability output limit')
-        if payload['invocation_limit'] != 1:
-            raise ValidationError('only one-use capabilities are supported')
         return cls(**dict(payload))
 
 
@@ -146,19 +213,34 @@ class IssuedCapability:
     claims: CapabilityClaims
     signature: str
     key_id: str
+    algorithm: str = "Ed25519"
+
+    def __post_init__(self) -> None:
+        if self.algorithm != "Ed25519":
+            raise ValidationError("capability algorithm must be Ed25519")
+        if not isinstance(self.key_id, str) or not _KEY_ID_RE.fullmatch(self.key_id):
+            raise ValidationError("capability key_id is malformed")
+        if not isinstance(self.signature, str) or not re.fullmatch(r"[A-Za-z0-9_-]{86}", self.signature):
+            raise ValidationError("capability signature is not canonical Ed25519 base64url")
 
     def to_dict(self) -> dict[str, Any]:
-        return {"claims": self.claims.to_dict(), "signature": self.signature, "key_id": self.key_id}
+        return {
+            "algorithm": self.algorithm,
+            "claims": self.claims.to_dict(),
+            "signature": self.signature,
+            "key_id": self.key_id,
+        }
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> 'IssuedCapability':
-        if not isinstance(payload, Mapping) or set(payload) != {'claims', 'signature', 'key_id'}:
+        if not isinstance(payload, Mapping) or set(payload) != {'algorithm', 'claims', 'signature', 'key_id'}:
             raise ValidationError('capability envelope fields are invalid')
-        signature = payload['signature']
-        key_id = payload['key_id']
-        if not isinstance(signature, str) or not signature or not isinstance(key_id, str) or not key_id:
-            raise ValidationError('capability signature and key_id are required')
-        return cls(CapabilityClaims.from_dict(payload['claims']), signature, key_id)
+        return cls(
+            CapabilityClaims.from_dict(payload['claims']),
+            payload['signature'],
+            payload['key_id'],
+            payload['algorithm'],
+        )
 
 
 @dataclass(frozen=True)

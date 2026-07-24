@@ -25,6 +25,10 @@
 - Propagated verified nonce context and lifetime through guardians, capabilities, process services, and evidence records.
 - Made the development bridge's no-cache contract explicit: each capability request requires a fresh proof and session-bound result digest.
 - Added stale-proof and reuse regressions covering expiry, measurement, policy, session, key, and executor changes.
+- Restricted security-sensitive request values to strict, bounded, NFC canonical JSON with interoperable integers and no floating point.
+- Made request arguments recursively immutable and required the signer and executor verifier to reconstruct request and argument digests independently.
+- Added strict Ed25519 envelope, key-identity, signature-encoding, integer-time, exclusive-expiration, clock-skew, and atomic replay checks.
+- Added eight fixed public capability vectors and adversarial tests for parser disagreement, substitution, mutation, replay, and TOCTOU behavior.
 
 ## Tests executed
 
@@ -38,6 +42,7 @@
 - Provider-dispatch regression: 26 TypeScript tests passed, 1 opt-in real-TPM test skipped, 36 Python tests passed, and all 8 TypeScript workspaces built.
 - Nonce-authority regression: 34 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 36 Python tests passed.
 - Fresh-attestation regression: 42 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 37 Python tests passed.
+- Capability hardening regression: 51 Python tests passed, including all 8 fixed public vectors.
 
 ## Known failures
 
@@ -80,7 +85,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Harden capability canonicalization and add fixed public adversarial verification vectors.
+Inject guardian compromise, malformed responses, timeouts, crashes, replay, and inconsistent-policy failures.
 
 ## Exact next command
 

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from .broker import CapabilityBroker
+from .canonical import digest
 from .component_ids import EXECUTOR_ATTESTATION_GUARDIAN, STATIC_POLICY_GUARDIAN
 from .guardians import GuardianQuorum, LineageBudgetGuardian
 from .models import ActionRequest, IssuedCapability, ValidationError
@@ -42,7 +43,11 @@ class IntentCanonicalizer:
             "request_digest": request.request_digest,
         })
 
+        approved_request_digest = request.request_digest
         decisions = self.quorum.evaluate(request)
+        if request.request_digest != approved_request_digest:
+            self.recorder.append("request.denied", {"request_id": request.request_id})
+            raise AuthorizationDenied("request changed during guardian evaluation")
         for decision in decisions:
             self.recorder.append("guardian.decision", {
                 "request_id": request.request_id,
@@ -50,6 +55,7 @@ class IntentCanonicalizer:
                 "allowed": decision.allowed,
                 "reason": decision.reason,
                 "evidence": dict(decision.evidence),
+                "request_digest": decision.request_digest,
             })
         if not self.quorum.allowed(decisions):
             for guardian in self.quorum.guardians:
@@ -81,7 +87,7 @@ class IntentCanonicalizer:
         self.recorder.append("capability.issued", {
             "request_id": request.request_id,
             "capability_id": capability.claims.capability_id,
-            "claims_digest": request.request_digest,
+            "claims_digest": digest(capability.claims.to_dict()),
             "expires_at": capability.claims.expires_at,
             "key_id": capability.key_id,
             "device_id": capability.claims.device_id,

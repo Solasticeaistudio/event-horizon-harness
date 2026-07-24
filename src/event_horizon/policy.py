@@ -46,22 +46,23 @@ class StaticPolicy:
 
     def evaluate(self, request: ActionRequest) -> GuardianDecision:
         if request.agent_id not in self.allowed_agents:
-            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, "agent is not authorized")
+            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, "agent is not authorized", request_digest=request.request_digest)
         if request.executor_id not in self.allowed_executors:
-            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, "executor is not authorized")
+            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, "executor is not authorized", request_digest=request.request_digest)
         rule = self.operations.get(request.operation)
         if rule is None:
-            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, "operation is deny-by-default")
+            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, "operation is deny-by-default", request_digest=request.request_digest)
         if request.resource_id not in rule.resources:
-            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, "resource is outside the policy set")
+            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, "resource is outside the policy set", request_digest=request.request_digest)
         keys = set(request.arguments)
         forbidden = keys & self.denied_argument_keys
         if forbidden:
-            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, f"forbidden argument keys: {sorted(forbidden)}")
+            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, f"forbidden argument keys: {sorted(forbidden)}", request_digest=request.request_digest)
         unknown = keys - rule.allowed_argument_keys
         if unknown:
-            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, f"argument widening: {sorted(unknown)}")
+            return GuardianDecision(STATIC_POLICY_GUARDIAN, False, f"argument widening: {sorted(unknown)}", request_digest=request.request_digest)
         return GuardianDecision(
             STATIC_POLICY_GUARDIAN, True, "static policy permits exact request",
-            {"max_output_bytes": rule.max_output_bytes, "policy_digest": self.policy_digest}
+            {"max_output_bytes": rule.max_output_bytes, "policy_digest": self.policy_digest},
+            request.request_digest,
         )

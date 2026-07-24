@@ -45,7 +45,13 @@ class StaticAttestationProvider:
             "trustLevel": "software",
             "assuranceLevel": "development",
             "measurements": {"executor": measurement},
-            "bundleDigest": "static-development-evidence",
+            "bundleDigest": digest({
+                "provider": "static-development",
+                "deviceId": executor_id,
+                "executorMeasurement": measurement,
+                "sessionId": session_id,
+                "purpose": purpose,
+            }),
             "keyId": "static-development:no-external-authority",
             "verifiedAt": "1970-01-01T00:00:00.000Z",
             "nonceContext": {

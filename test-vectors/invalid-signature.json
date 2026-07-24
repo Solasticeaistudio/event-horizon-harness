@@ -1,0 +1,58 @@
+{
+  "capability": {
+    "algorithm": "Ed25519",
+    "claims": {
+      "agent_id": "attacker-agent",
+      "arguments_digest": "80809302a08812c0b40f31431ee386cc55f35bc67a52dfad2d1c14677371e9e4",
+      "attestation_bundle_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "attestation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "capability_id": "cap_0123456789abcdef01234567",
+      "device_id": "exec-1",
+      "executor_id": "exec-1",
+      "executor_measurement": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expires_at": 1700000060000,
+      "invocation_limit": 1,
+      "issued_at": 1700000000000,
+      "max_output_bytes": 4096,
+      "operation": "object.read",
+      "policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "request_digest": "0b48d7c702c14da5842982cf3990ef35faed67afaaed3cc8948703c40c316c93",
+      "resource_id": "target-source",
+      "session_id": "vector-session",
+      "signer_key_id": "ed25519:05ec121c848971ec91ef72e054869e1d",
+      "verifier_policy_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "key_id": "ed25519:05ec121c848971ec91ef72e054869e1d",
+    "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "context": {
+    "attestation_bundle_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "attestation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "device_id": "exec-1",
+    "executor_measurement": "1111111111111111111111111111111111111111111111111111111111111111",
+    "policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "verifier_policy_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "description": "Canonical-length but invalid Ed25519 signature.",
+  "expected": {
+    "reason": "invalid capability signature",
+    "valid": false
+  },
+  "preconsume": false,
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA6GUSEFVeHVxqfJTMPYHojAABlMo0AUy2P2rD67WC21A=\n-----END PUBLIC KEY-----\n",
+  "request": {
+    "agent_id": "attacker-agent",
+    "arguments": {
+      "length": 10,
+      "offset": 0
+    },
+    "executor_id": "exec-1",
+    "operation": "object.read",
+    "purpose": "public capability vector",
+    "request_id": "vector-request",
+    "resource_id": "target-source",
+    "session_id": "vector-session"
+  },
+  "schema": "event-horizon.capability-test-vector.v1",
+  "verification_time": 1700000000.0
+}

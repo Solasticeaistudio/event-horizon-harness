@@ -186,6 +186,7 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
                 'nonce_issued_at': attestation['nonceIssuedAt'],
                 'nonce_expires_at': attestation['nonceExpiresAt'],
             },
+            request.request_digest,
         )
         decisions = [
             policy_guardian.evaluate(request),
@@ -194,7 +195,10 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
             sequence.evaluate(request),
         ]
         if inject_permissive:
-            decisions.append(GuardianDecision('compromised', True, 'injected permissive decision'))
+            decisions.append(GuardianDecision(
+                'compromised', True, 'injected permissive decision',
+                request_digest=request.request_digest,
+            ))
         allowed = all(decision.allowed for decision in decisions)
         if not allowed:
             budget.record_denial(request.session_id)
@@ -234,9 +238,15 @@ def _guardian_result(value: Any, request: ActionRequest) -> dict[str, Any]:
     required = REQUIRED_GUARDIANS
     names: set[str] = set()
     for decision in decisions:
-        _exact(decision, {'guardian', 'allowed', 'reason', 'evidence'}, 'guardian decision')
+        _exact(
+            decision,
+            {'guardian', 'allowed', 'reason', 'evidence', 'request_digest'},
+            'guardian decision',
+        )
         if not isinstance(decision['allowed'], bool) or not isinstance(decision['evidence'], dict):
             raise ProtocolError('guardian_decision', 'guardian decision types are invalid')
+        if decision['request_digest'] != request.request_digest:
+            raise ProtocolError('guardian_request', 'guardian decision request mismatch')
         names.add(decision['guardian'])
     if not required.issubset(names):
         raise ProtocolError('guardian_quorum', 'required guardian decision is missing')

@@ -42,18 +42,18 @@ class AttestationGuardian:
                 request.purpose,
             ))
         except AttestationError as exc:
-            return GuardianDecision(self.name, False, str(exc))
+            return GuardianDecision(self.name, False, str(exc), request_digest=request.request_digest)
         measurement = dict(evidence.get("measurements", {})).get("executor")
         if not measurement:
-            return GuardianDecision(self.name, False, "verified evidence omitted executor measurement")
+            return GuardianDecision(self.name, False, "verified evidence omitted executor measurement", request_digest=request.request_digest)
         if evidence.get("deviceId") != request.executor_id:
-            return GuardianDecision(self.name, False, "verified device does not match requested executor")
+            return GuardianDecision(self.name, False, "verified device does not match requested executor", request_digest=request.request_digest)
         required = (
             "bundleDigest", "resultDigest", "verifierPolicyDigest", "keyId",
             "nonceContext", "nonceIssuedAt", "nonceExpiresAt",
         )
         if any(not evidence.get(name) for name in required):
-            return GuardianDecision(self.name, False, "verified evidence omitted required binding")
+            return GuardianDecision(self.name, False, "verified evidence omitted required binding", request_digest=request.request_digest)
         expected_nonce_context = {
             "deviceId": request.executor_id,
             "executorId": request.executor_id,
@@ -61,7 +61,7 @@ class AttestationGuardian:
             "purpose": request.purpose,
         }
         if evidence["nonceContext"] != expected_nonce_context:
-            return GuardianDecision(self.name, False, "verified nonce context does not match request")
+            return GuardianDecision(self.name, False, "verified nonce context does not match request", request_digest=request.request_digest)
         return GuardianDecision(
             self.name,
             True,
@@ -80,6 +80,7 @@ class AttestationGuardian:
                 "nonce_issued_at": evidence.get("nonceIssuedAt"),
                 "nonce_expires_at": evidence.get("nonceExpiresAt"),
             },
+            request.request_digest,
         )
 
 
@@ -95,11 +96,11 @@ class LineageBudgetGuardian:
         used = self._requests.get(request.session_id, 0)
         denied = self._denials.get(request.session_id, 0)
         if used >= self.max_requests_per_session:
-            return GuardianDecision(self.name, False, "session request budget exhausted")
+            return GuardianDecision(self.name, False, "session request budget exhausted", request_digest=request.request_digest)
         if denied >= self.max_denials_per_session:
-            return GuardianDecision(self.name, False, "session denial budget exhausted")
+            return GuardianDecision(self.name, False, "session denial budget exhausted", request_digest=request.request_digest)
         self._requests[request.session_id] = used + 1
-        return GuardianDecision(self.name, True, "lineage budget available", {"used": used + 1})
+        return GuardianDecision(self.name, True, "lineage budget available", {"used": used + 1}, request.request_digest)
 
     def record_denial(self, session_id: str) -> None:
         self._denials[session_id] = self._denials.get(session_id, 0) + 1
@@ -115,8 +116,8 @@ class SequenceGuardian:
 
     def evaluate(self, request: ActionRequest) -> GuardianDecision:
         if request.operation in self.suspicious_operations:
-            return GuardianDecision(self.name, False, "operation is a prohibited escape primitive")
-        return GuardianDecision(self.name, True, "no prohibited transition detected")
+            return GuardianDecision(self.name, False, "operation is a prohibited escape primitive", request_digest=request.request_digest)
+        return GuardianDecision(self.name, True, "no prohibited transition detected", request_digest=request.request_digest)
 
 
 @dataclass
@@ -124,7 +125,25 @@ class GuardianQuorum:
     guardians: Iterable[Guardian]
 
     def evaluate(self, request: ActionRequest) -> list[GuardianDecision]:
-        decisions = [g.evaluate(request) for g in self.guardians]
+        decisions: list[GuardianDecision] = []
+        for guardian in self.guardians:
+            try:
+                decision = guardian.evaluate(request)
+            except Exception:
+                decision = GuardianDecision(
+                    guardian.name,
+                    False,
+                    "guardian failed closed",
+                    request_digest=request.request_digest,
+                )
+            if decision.guardian != guardian.name or decision.request_digest != request.request_digest:
+                decision = GuardianDecision(
+                    guardian.name,
+                    False,
+                    "guardian response binding mismatch",
+                    request_digest=request.request_digest,
+                )
+            decisions.append(decision)
         # Any veto blocks. Approvals cannot widen the static request.
         return decisions
 
