@@ -69,12 +69,12 @@ jobs:
           python -m pip install --disable-pip-version-check -e .
       - name: Build integration dependencies
         run: npm run build
-      - name: Run process-separated demonstration
-        run: python -m event_horizon.process_demo --workdir "$RUNNER_TEMP/event-horizon-integration"
+      - name: Run complete public demonstration
+        run: python -m event_horizon.public_demo --workdir "$RUNNER_TEMP/event-horizon-integration" --artifacts-dir "$RUNNER_TEMP/event-horizon-artifacts"
       - name: Verify generated evidence chain
         run: python scripts/verify_evidence_chain.py "$RUNNER_TEMP/event-horizon-integration/external-evidence/events.jsonl"
       - name: Verify generated containment certificate
-        run: python scripts/verify_certificate.py "$RUNNER_TEMP/event-horizon-integration/containment-certificate-v0.4.json"
+        run: python scripts/verify_certificate.py "$RUNNER_TEMP/event-horizon-artifacts/latest-containment-certificate.json"
       - name: Verify selected fixed vectors
         run: python scripts/verify_capability_vectors.py test-vectors/valid-capability.json test-vectors/replayed-capability.json test-vectors/unknown-field.json test-vectors/invalid-signature.json
       - name: Enforce tracked-artifact and secret policy

@@ -1,0 +1,16 @@
+{
+  "mode": "process-separated synthetic harness",
+  "results": {
+    "argument_widening": true,
+    "capability_replay": true,
+    "containment_certificate": true,
+    "cross_executor_transfer": true,
+    "evidence_tampering": true,
+    "executor_attestation": true,
+    "initial_local_access": true,
+    "permitted_exact_operation": true,
+    "unauthorized_network_operation": true
+  },
+  "schema": "event-horizon.public-demo-result.v0.4",
+  "simulator_is_hardware_attestation": false
+}

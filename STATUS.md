@@ -35,6 +35,9 @@
 - Added the repository's existing proprietary license declaration, private security-reporting policy, safe red-team guide, known-limitations ledger, contribution guide, changelog, and citation metadata.
 - Added clean Python, TypeScript, integration, evidence, certificate, fixed-vector, and repository-policy GitHub Actions jobs.
 - Added dependency-free Python linting plus tracked-artifact, private-key, large-file, environment-file, archive, and stale-name enforcement.
+- Added `make demo` and `scripts/demo.ps1` for a single process-separated containment demonstration with the required concise summary.
+- The demo now exercises fresh simulator attestation, exact capability use, replay, argument and executor transfer, prohibited egress, evidence tampering, verified teardown, and an independently verified live certificate.
+- Added a deterministic normalized reference result while keeping fresh per-run keys, nonces, timestamps, and digests out of version control.
 
 ## Tests executed
 
@@ -50,6 +53,7 @@
 - Fresh-attestation regression: 42 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 37 Python tests passed.
 - Capability hardening regression: 51 Python tests passed, including all 8 fixed public vectors.
 - Guardian compromise regression: 60 Python tests passed.
+- Public-demo regression: 61 Python tests passed; the PowerShell single-command demo and independent live-certificate verification passed.
 - CI-equivalent integration run: process-separated demo, generated evidence chain, generated certificate, and selected fixed vectors passed.
 - Repository lint/policy checks: 38 tracked Python files and 138 tracked repository paths passed.
 
@@ -94,7 +98,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Create the reproducible single-command containment demo and deterministic reference run.
+Rewrite the public README for frontier-lab technical review using measured claims and actual demo results.
 
 ## Exact next command
 

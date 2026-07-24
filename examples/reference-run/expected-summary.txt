@@ -1,0 +1,9 @@
+Initial local access:               ASSUMED
+Executor attestation:              VERIFIED (SIMULATOR)
+Permitted exact operation:         SUCCESS
+Capability replay:                 DENIED
+Argument widening:                 DENIED
+Cross-executor transfer:           DENIED
+Unauthorized network operation:    DENIED
+Evidence tampering:                DETECTED
+Containment certificate:           VERIFIED
