@@ -19,6 +19,89 @@ class CapabilityError(PermissionError):
     pass
 
 
+class CapabilityVerifier:
+    """Public-key-only verifier with local one-use consumption state."""
+
+    def __init__(self, public_key: str | bytes | Ed25519PublicKey, key_id: str):
+        if isinstance(public_key, Ed25519PublicKey):
+            loaded = public_key
+        else:
+            encoded = public_key.encode("ascii") if isinstance(public_key, str) else public_key
+            loaded = serialization.load_pem_public_key(encoded)
+        if not isinstance(loaded, Ed25519PublicKey):
+            raise TypeError("capability verification key must be Ed25519")
+        if not key_id:
+            raise ValueError("capability key_id is required")
+        self._public_key = loaded
+        self.key_id = key_id
+        self._consumed: set[str] = set()
+        self._lock = threading.RLock()
+
+    def verify_and_consume(
+        self,
+        capability: IssuedCapability,
+        request: ActionRequest,
+        *,
+        executor_measurement: str,
+        device_id: str | None = None,
+        attestation_digest: str | None = None,
+        attestation_bundle_digest: str | None = None,
+        verifier_policy_digest: str | None = None,
+        policy_digest: str | None = None,
+        now: float | None = None,
+    ) -> CapabilityClaims:
+        now = time.time() if now is None else now
+        claims = capability.claims
+        if capability.key_id != self.key_id or claims.signer_key_id != self.key_id:
+            raise CapabilityError("unknown capability signing key")
+        try:
+            padding = "=" * (-len(capability.signature) % 4)
+            signature = base64.urlsafe_b64decode(capability.signature + padding)
+            self._public_key.verify(signature, canonical_bytes(claims.to_dict()))
+        except (InvalidSignature, ValueError) as exc:
+            raise CapabilityError("invalid capability signature") from exc
+        if now < claims.issued_at - 5:
+            raise CapabilityError("capability issued in the future")
+        if now > claims.expires_at:
+            raise CapabilityError("capability expired")
+        if claims.invocation_limit != 1:
+            raise CapabilityError("unsupported invocation limit")
+
+        def expected(value: str | None, fallback: str) -> str:
+            return fallback if value is None else value
+
+        bindings = {
+            "session_id": (claims.session_id, request.session_id),
+            "agent_id": (claims.agent_id, request.agent_id),
+            "executor_id": (claims.executor_id, request.executor_id),
+            "device_id": (claims.device_id, expected(device_id, claims.device_id)),
+            "executor_measurement": (claims.executor_measurement, executor_measurement),
+            "attestation_digest": (claims.attestation_digest, expected(attestation_digest, claims.attestation_digest)),
+            "attestation_bundle_digest": (
+                claims.attestation_bundle_digest,
+                expected(attestation_bundle_digest, claims.attestation_bundle_digest),
+            ),
+            "verifier_policy_digest": (
+                claims.verifier_policy_digest,
+                expected(verifier_policy_digest, claims.verifier_policy_digest),
+            ),
+            "policy_digest": (claims.policy_digest, expected(policy_digest, claims.policy_digest)),
+            "signer_key_id": (claims.signer_key_id, capability.key_id),
+            "operation": (claims.operation, request.operation),
+            "resource_id": (claims.resource_id, request.resource_id),
+            "arguments_digest": (claims.arguments_digest, digest(dict(request.arguments))),
+            "request_digest": (claims.request_digest, request.request_digest),
+        }
+        mismatches = [name for name, pair in bindings.items() if pair[0] != pair[1]]
+        if mismatches:
+            raise CapabilityError(f"capability binding mismatch: {sorted(mismatches)}")
+        with self._lock:
+            if claims.capability_id in self._consumed:
+                raise CapabilityError("capability replay detected")
+            self._consumed.add(claims.capability_id)
+        return claims
+
+
 class CapabilityBroker:
     """Prototype external capability signer and one-use verifier.
 
@@ -64,8 +147,11 @@ class CapabilityBroker:
         self,
         request: ActionRequest,
         *,
+        device_id: str,
         executor_measurement: str,
         attestation_digest: str,
+        attestation_bundle_digest: str,
+        verifier_policy_digest: str,
         policy_digest: str,
         max_output_bytes: int,
         now: float | None = None,
@@ -78,8 +164,11 @@ class CapabilityBroker:
             session_id=request.session_id,
             agent_id=request.agent_id,
             executor_id=request.executor_id,
+            device_id=device_id,
             executor_measurement=executor_measurement,
             attestation_digest=attestation_digest,
+            attestation_bundle_digest=attestation_bundle_digest,
+            verifier_policy_digest=verifier_policy_digest,
             operation=request.operation,
             resource_id=request.resource_id,
             arguments_digest=digest(dict(request.arguments)),
@@ -87,6 +176,7 @@ class CapabilityBroker:
             max_output_bytes=max_output_bytes,
             invocation_limit=1,
             policy_digest=policy_digest,
+            signer_key_id=self.key_id,
         )
         signature = base64.urlsafe_b64encode(
             self._private_key.sign(canonical_bytes(claims.to_dict()))
@@ -99,11 +189,16 @@ class CapabilityBroker:
         request: ActionRequest,
         *,
         executor_measurement: str,
+        device_id: str | None = None,
+        attestation_digest: str | None = None,
+        attestation_bundle_digest: str | None = None,
+        verifier_policy_digest: str | None = None,
+        policy_digest: str | None = None,
         now: float | None = None,
     ) -> CapabilityClaims:
         now = time.time() if now is None else now
         claims = capability.claims
-        if capability.key_id != self.key_id:
+        if capability.key_id != self.key_id or claims.signer_key_id != self.key_id:
             raise CapabilityError("unknown capability signing key")
         try:
             padding = "=" * (-len(capability.signature) % 4)
@@ -115,11 +210,27 @@ class CapabilityBroker:
             raise CapabilityError("capability expired")
         if claims.invocation_limit != 1:
             raise CapabilityError("unsupported invocation limit")
+
+        def expected(value: str | None, fallback: str) -> str:
+            return fallback if value is None else value
+
         bindings = {
             "session_id": (claims.session_id, request.session_id),
             "agent_id": (claims.agent_id, request.agent_id),
             "executor_id": (claims.executor_id, request.executor_id),
+            "device_id": (claims.device_id, expected(device_id, claims.device_id)),
             "executor_measurement": (claims.executor_measurement, executor_measurement),
+            "attestation_digest": (claims.attestation_digest, expected(attestation_digest, claims.attestation_digest)),
+            "attestation_bundle_digest": (
+                claims.attestation_bundle_digest,
+                expected(attestation_bundle_digest, claims.attestation_bundle_digest),
+            ),
+            "verifier_policy_digest": (
+                claims.verifier_policy_digest,
+                expected(verifier_policy_digest, claims.verifier_policy_digest),
+            ),
+            "policy_digest": (claims.policy_digest, expected(policy_digest, claims.policy_digest)),
+            "signer_key_id": (claims.signer_key_id, capability.key_id),
             "operation": (claims.operation, request.operation),
             "resource_id": (claims.resource_id, request.resource_id),
             "arguments_digest": (claims.arguments_digest, digest(dict(request.arguments))),

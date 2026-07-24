@@ -47,7 +47,14 @@ class ContainmentCertificateBuilder:
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         ).decode("ascii")
 
-    def build(self, *, run_id: str, session_id: str, assertions: dict[str, bool]) -> dict[str, Any]:
+    def build(
+        self,
+        *,
+        run_id: str,
+        session_id: str,
+        assertions: dict[str, bool],
+        evidence: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         valid, tip = self.recorder.verify()
         events = self.recorder.events()
         denied = sum(1 for event in events if event["event_type"] in {"request.denied", "execution.denied", "request.rejected"})
@@ -61,8 +68,47 @@ class ContainmentCertificateBuilder:
             for event in hardproof_decisions
             if event["payload"].get("evidence", {}).get("bundle_digest")
         })
+        attestation_result_digests = sorted({
+            event["payload"].get("evidence", {}).get("attestation_result_digest")
+            for event in hardproof_decisions
+            if event["payload"].get("evidence", {}).get("attestation_result_digest")
+        })
+        capability_events = [event for event in events if event["event_type"] == "capability.issued"]
+        required_evidence = {
+            "attestation", "capability", "policy", "image", "recorder", "teardown", "egress"
+        }
+        if evidence is None:
+            evidence = {
+                "attestation": {
+                    "result_digests": attestation_result_digests,
+                    "bundle_digests": attestation_digests,
+                },
+                "capability": {
+                    "ids": sorted({event["payload"].get("capability_id") for event in capability_events}),
+                    "signer_key_ids": sorted({event["payload"].get("key_id") for event in capability_events}),
+                    "request_digests": sorted({event["payload"].get("request_digest") for event in capability_events}),
+                },
+                "policy": {
+                    "digests": sorted({event["payload"].get("policy_digest") for event in capability_events}),
+                },
+                "image": {
+                    "digests": sorted({event["payload"].get("executor_measurement") for event in capability_events}),
+                },
+                "recorder": {
+                    "event_count": len(events),
+                    "chain_tip": tip,
+                    "chain_valid": valid,
+                    "key_id": getattr(self.recorder, "key_id", "unavailable"),
+                },
+                "teardown": {"verified": bool(assertions.get("teardown_verified", False))},
+                "egress": {"unauthorized_egress": not assertions.get("no_unauthorized_egress", False)},
+            }
+        if not isinstance(evidence, dict) or set(evidence) != required_evidence:
+            raise ValueError("certificate evidence must contain every required evidence domain")
+        if any(not isinstance(evidence[name], dict) for name in required_evidence):
+            raise ValueError("certificate evidence domains must be objects")
         payload = {
-            "schema": "event-horizon.containment-certificate.v0.3",
+            "schema": "event-horizon.containment-certificate.v0.4",
             "run_id": run_id,
             "session_id": session_id,
             "created_at": time.time(),
@@ -72,6 +118,8 @@ class ContainmentCertificateBuilder:
             "completed_actions": completed,
             "denied_transitions": denied,
             "hardproof_attestation_digests": attestation_digests,
+            "hardproof_attestation_result_digests": attestation_result_digests,
+            "evidence": evidence,
             "assertions": dict(sorted(assertions.items())),
         }
         signature = base64.urlsafe_b64encode(
@@ -86,11 +134,27 @@ class ContainmentCertificateBuilder:
         }
 
     @staticmethod
-    def verify(certificate: dict[str, Any]) -> bool:
+    def verify(
+        certificate: dict[str, Any],
+        public_key_pem: str | None = None,
+        expected_key_id: str | None = None,
+    ) -> bool:
         try:
             payload = certificate["certificate"]
-            public_key = serialization.load_pem_public_key(certificate["public_key_pem"].encode("ascii"))
+            trusted_pem = public_key_pem or certificate["public_key_pem"]
+            if public_key_pem is not None and certificate.get("public_key_pem") != public_key_pem:
+                return False
+            public_key = serialization.load_pem_public_key(trusted_pem.encode("ascii"))
             if not isinstance(public_key, Ed25519PublicKey):
+                return False
+            raw_public = public_key.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+            actual_key_id = f"ed25519:{hashlib.sha256(raw_public).hexdigest()[:32]}"
+            if certificate.get("key_id") != actual_key_id:
+                return False
+            if expected_key_id is not None and actual_key_id != expected_key_id:
                 return False
             padding = "=" * (-len(certificate["signature"]) % 4)
             signature = base64.urlsafe_b64decode(certificate["signature"] + padding)

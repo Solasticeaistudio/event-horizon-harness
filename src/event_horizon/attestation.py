@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 
+from .canonical import digest
+
 
 class AttestationError(RuntimeError):
     pass
@@ -26,7 +28,7 @@ class StaticAttestationProvider:
         measurement = self.measurements.get(executor_id)
         if not measurement:
             raise AttestationError("executor has no trusted measurement")
-        return {
+        result = {
             "valid": True,
             "deviceId": executor_id,
             "method": "static-development",
@@ -35,6 +37,13 @@ class StaticAttestationProvider:
             "measurements": {"executor": measurement},
             "bundleDigest": "static-development-evidence",
         }
+        result["verifierPolicyDigest"] = digest({
+            "provider": "static-development",
+            "deviceId": executor_id,
+            "executorMeasurement": measurement,
+        })
+        result["resultDigest"] = digest(result)
+        return result
 
 
 @dataclass
@@ -49,7 +58,6 @@ class HardProofDevelopmentProvider:
     device_seeds: Mapping[str, str]
     node_binary: str = "node"
     timeout_seconds: float = 10.0
-    _cache: dict[str, Mapping[str, Any]] = field(default_factory=dict, init=False)
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False)
 
     def verify_executor(self, executor_id: str) -> Mapping[str, Any]:
@@ -57,9 +65,6 @@ class HardProofDevelopmentProvider:
         if not seed:
             raise AttestationError("executor is not enrolled with HardProof")
         with self._lock:
-            cached = self._cache.get(executor_id)
-            if cached:
-                return cached
             script = self.hardproof_root / "bridge" / "verify-executor.mjs"
             if not script.exists():
                 raise AttestationError(f"HardProof bridge missing: {script}")
@@ -83,8 +88,18 @@ class HardProofDevelopmentProvider:
                 raise AttestationError("HardProof verifier returned malformed JSON") from exc
             if not isinstance(result, dict) or not result.get("valid"):
                 raise AttestationError(str(result.get("failureReason", "attestation rejected")))
+            if result.get("deviceId") != executor_id:
+                raise AttestationError("HardProof result device identity mismatch")
             measurements = result.get("measurements")
             if not isinstance(measurements, dict) or not measurements.get("executor"):
                 raise AttestationError("HardProof result omitted executor measurement")
-            self._cache[executor_id] = result
+            if not result.get("bundleDigest") or not result.get("keyId"):
+                raise AttestationError("HardProof result omitted proof or key identity")
+            result["verifierPolicyDigest"] = digest({
+                "provider": "hardproof-development-bridge",
+                "deviceId": executor_id,
+                "minimumTrust": "simulated",
+                "expectedExecutorMeasurement": measurements["executor"],
+            })
+            result["resultDigest"] = digest(result)
             return result

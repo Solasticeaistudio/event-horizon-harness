@@ -36,13 +36,21 @@ class AttestationGuardian:
         measurement = dict(evidence.get("measurements", {})).get("executor")
         if not measurement:
             return GuardianDecision(self.name, False, "verified evidence omitted executor measurement")
+        if evidence.get("deviceId") != request.executor_id:
+            return GuardianDecision(self.name, False, "verified device does not match requested executor")
+        required = ("bundleDigest", "resultDigest", "verifierPolicyDigest", "keyId")
+        if any(not evidence.get(name) for name in required):
+            return GuardianDecision(self.name, False, "verified evidence omitted required binding")
         return GuardianDecision(
             self.name,
             True,
             "executor identity and measurement verified",
             {
+                "device_id": evidence.get("deviceId"),
                 "measurement": measurement,
                 "bundle_digest": evidence.get("bundleDigest"),
+                "attestation_result_digest": evidence.get("resultDigest"),
+                "verifier_policy_digest": evidence.get("verifierPolicyDigest"),
                 "method": evidence.get("method"),
                 "trust_level": evidence.get("trustLevel"),
                 "assurance_level": evidence.get("assuranceLevel"),

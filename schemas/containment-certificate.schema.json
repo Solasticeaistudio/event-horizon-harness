@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://solsticestudio.ai/event-horizon/containment-certificate.v0.3.schema.json",
-  "title": "Event Horizon Containment Certificate v0.3",
+  "$id": "https://solsticestudio.ai/event-horizon/containment-certificate.v0.4.schema.json",
+  "title": "Event Horizon Containment Certificate v0.4",
   "type": "object",
   "additionalProperties": false,
   "required": ["certificate", "signature", "algorithm", "key_id", "public_key_pem"],
@@ -16,10 +16,11 @@
       "required": [
         "schema", "run_id", "session_id", "created_at", "event_count",
         "event_chain_valid", "event_chain_tip", "completed_actions",
-        "denied_transitions", "hardproof_attestation_digests", "assertions"
+        "denied_transitions", "hardproof_attestation_digests",
+        "hardproof_attestation_result_digests", "evidence", "assertions"
       ],
       "properties": {
-        "schema": {"const": "event-horizon.containment-certificate.v0.3"},
+        "schema": {"const": "event-horizon.containment-certificate.v0.4"},
         "run_id": {"type": "string"},
         "session_id": {"type": "string"},
         "created_at": {"type": "number"},
@@ -32,6 +33,25 @@
           "type": "array",
           "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "uniqueItems": true
+        },
+        "hardproof_attestation_result_digests": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "uniqueItems": true
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["attestation", "capability", "policy", "image", "recorder", "teardown", "egress"],
+          "properties": {
+            "attestation": {"type": "object"},
+            "capability": {"type": "object"},
+            "policy": {"type": "object"},
+            "image": {"type": "object"},
+            "recorder": {"type": "object"},
+            "teardown": {"type": "object"},
+            "egress": {"type": "object"}
+          }
         },
         "assertions": {"type": "object", "additionalProperties": {"type": "boolean"}}
       }
