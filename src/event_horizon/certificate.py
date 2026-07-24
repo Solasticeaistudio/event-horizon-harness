@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from .canonical import canonical_bytes
+from .component_ids import EXECUTOR_ATTESTATION_GUARDIAN
 from .recorder import ExternalRecorder
 
 
@@ -61,7 +62,8 @@ class ContainmentCertificateBuilder:
         completed = sum(1 for event in events if event["event_type"] == "execution.completed")
         attestation_decisions = [
             event for event in events
-            if event["event_type"] == "guardian.decision" and event["payload"].get("guardian") == "attestation"
+            if event["event_type"] == "guardian.decision"
+            and event["payload"].get("guardian") == EXECUTOR_ATTESTATION_GUARDIAN
         ]
         attestation_digests = sorted({
             event["payload"].get("evidence", {}).get("bundle_digest")

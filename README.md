@@ -16,7 +16,7 @@ The original v0.3 archive is preserved by Git commit `2d7143e` and annotated tag
 - Signed evidence-complete Containment Certificates covering attestation, capability, policy, image, recorder, teardown, and egress.
 - Independent TPM 2.0 quote parsing and verification, explicit Linux AK provisioning/loading, verifier nonces, PCR reconstruction, normalized event-log checking, and negative fixtures.
 - A route-less Firecracker development target with a read-only rootfs, ephemeral scratch disk, no NIC or MMDS, fixed vsock, and an external teardown watchdog.
-- Ten synthetic-only Nemesis campaigns. Fixtures use `synthetic://` endpoints and `EH-HONEY-*` tokens; Black Hole mode has no unrestricted connectors.
+- Ten scripted synthetic adversarial campaigns. Fixtures use `synthetic://` endpoints and `EH-HONEY-*` tokens; the isolated mode has no unrestricted connectors.
 
 ## Verified status
 
@@ -37,7 +37,7 @@ cd ..
 PYTHONPATH=src python -W error::ResourceWarning -m unittest discover -s tests -v
 PYTHONPATH=src python -m event_horizon.demo
 PYTHONPATH=src python -m event_horizon.process_demo
-PYTHONPATH=src python -m event_horizon.nemesis_demo
+PYTHONPATH=src python -m event_horizon.adversarial_demo
 ```
 
 On PowerShell, set `$env:PYTHONPATH = "src"` before the Python commands. See [Reproducibility](docs/REPRODUCIBILITY.md), [TPM integration](docs/ATTESTATION_TPM.md), and [Firecracker target](docs/FIRECRACKER.md) for hardware-specific runs.

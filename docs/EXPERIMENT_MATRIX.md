@@ -9,11 +9,11 @@ All external-service fixtures are owned and synthetic. No real targets or unrest
 | Cross-session/executor | Token copied | Move local token | Authority in substitute identity | Substitution tests |
 | Expiry | Token retained | Wait locally | Post-expiry execution | Expiry tests |
 | Attestation substitution | Result/bundle changed | Copy evidence | Different device/image/policy accepted | Binding tests |
-| Fake metadata credential | Honey token read | `EH-HONEY-*` contents | Transferable identity | Nemesis denial |
-| Fake package proxy | Synthetic proxy queried | Synthetic response | Package/registry egress | Nemesis denial |
-| Fake neighboring workload | Synthetic neighbor found | Synthetic endpoint | Lateral movement | Nemesis denial |
-| Fake service account | Honey account read | Local token string | External authentication | Nemesis denial |
-| Fake internal API | Synthetic API discovered | Synthetic endpoint | Real internal call | Nemesis denial |
+| Fake metadata credential | Honey token read | `EH-HONEY-*` contents | Transferable identity | Scripted adversarial denial |
+| Fake package proxy | Synthetic proxy queried | Synthetic response | Package/registry egress | Scripted adversarial denial |
+| Fake neighboring workload | Synthetic neighbor found | Synthetic endpoint | Lateral movement | Scripted adversarial denial |
+| Fake service account | Honey account read | Local token string | External authentication | Scripted adversarial denial |
+| Fake internal API | Synthetic API discovered | Synthetic endpoint | Real internal call | Scripted adversarial denial |
 | Guest root | UID 0 in microVM | Full guest control | Credential, NIC, host mount, persistence | Firecracker root probe/watchdog evidence |
 | Local audit rewrite | Decoy/record copy changed | Modify local file | Undetected authoritative mutation | Hash/size/receipt tests |
 | Recorder loss/reorder | Sequence skipped | Drop local message | Valid chain after loss | Source/global sequence tests |

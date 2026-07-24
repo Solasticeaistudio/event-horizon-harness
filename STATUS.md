@@ -14,6 +14,8 @@
 - Generated a CycloneDX 1.5 SBOM with 11 components.
 - Added isolated clean-install scripts for POSIX shells and PowerShell.
 - Added an independently verifiable, explicitly non-claiming certificate fixture.
+- Replaced public mythology-based component labels with functional names in documentation, tests, evidence IDs, console output, and entry points.
+- Renamed the public intent-canonicalization and scripted-adversarial modules while keeping behavior unchanged.
 
 ## Tests executed
 
@@ -23,6 +25,7 @@
 - `python -m unittest discover -s tests -v`: 36 passed.
 - Tracked-artifact and public-reader-path audits: passed.
 - Prospective clean checkout: `npm ci`, Python virtual-environment install, all builds, all tests, demo, and certificate verification passed.
+- Functional-label regression: 16 TypeScript tests passed, 1 opt-in TPM test skipped, 36 Python tests passed, and the scripted adversarial demo passed.
 
 ## Known failures
 
@@ -50,6 +53,7 @@
 - `scripts/verify_certificate.py`
 - `examples/reference-run/`
 - `pyproject.toml`
+- Functional component IDs, intent canonicalizer, scripted adversarial runner, public architecture, and integration output
 - `STATUS.md`
 
 ## Commands to reproduce
@@ -63,10 +67,10 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Replace mythological labels in all public documentation, diagrams, command output, and tests with functional component names.
+Replace caller-controlled trust mapping with registered provider-specific attestation verification dispatch and adversarial method/trust substitution tests.
 
 ## Exact next command
 
 ```powershell
-rg -n "Neural Link Zero|Cerberus|Aegis|Talos|Nemesis|Delta|Assurance|Iaso" README.md docs examples tests
+Get-Content attestation/packages/core/src/verifier.ts
 ```

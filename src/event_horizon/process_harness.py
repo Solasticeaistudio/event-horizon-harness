@@ -13,7 +13,7 @@ from typing import Any, Mapping
 
 from .canonical import canonical_bytes, digest
 from .models import ActionRequest, ExecutionResult, IssuedCapability, ValidationError
-from .neural_link_zero import AuthorizationDenied
+from .intent_canonicalizer import AuthorizationDenied
 from .protocol import ProtocolError, read_frame, request_envelope, validate_response, write_frame
 from .recorder import ExternalRecorder
 

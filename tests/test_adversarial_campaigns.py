@@ -5,16 +5,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from event_horizon.nemesis import NemesisCampaignRunner
+from event_horizon.adversarial import ScriptedAdversarialCampaignRunner
 from event_horizon.process_harness import ProcessSeparatedHarness
 
 
-class NemesisCampaignTests(unittest.TestCase):
+class ScriptedAdversarialCampaignTests(unittest.TestCase):
     def test_all_owned_campaigns_are_contained_without_real_connectors(self):
         with tempfile.TemporaryDirectory() as tmp:
             harness = ProcessSeparatedHarness(tmp, inject_permissive_guardian=True).start()
             try:
-                runner = NemesisCampaignRunner(harness)
+                runner = ScriptedAdversarialCampaignRunner(harness)
                 results = runner.run_all()
                 self.assertEqual(len(results), 10)
                 self.assertTrue(all(result.contained for result in results))

@@ -9,7 +9,7 @@ from pathlib import Path
 from event_horizon.broker import CapabilityError
 from event_horizon.factory import build_local_harness
 from event_horizon.models import ActionRequest, ValidationError
-from event_horizon.neural_link_zero import AuthorizationDenied
+from event_horizon.intent_canonicalizer import AuthorizationDenied
 
 
 def payload(**overrides):

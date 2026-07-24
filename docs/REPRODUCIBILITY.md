@@ -29,10 +29,10 @@ Expected on a host without a real TPM: 16 passing Executor Attestation tests plu
 ```bash
 PYTHONPATH=src python -m event_horizon.demo
 PYTHONPATH=src python -m event_horizon.process_demo --workdir .demo/process
-PYTHONPATH=src python -m event_horizon.nemesis_demo --workdir .demo/nemesis
+PYTHONPATH=src python -m event_horizon.adversarial_demo --workdir .demo/adversarial
 python scripts/run_firecracker_demo.py --fallback process
 ```
 
-The process demo prints all seven process IDs, probes the hostile executor for credentials/private keys, proves one exact capability works once, proves replay/widening/egress fail, restarts the recorder, tears down the executor, and emits a signed certificate. The Nemesis demo must report all ten campaigns contained.
+The process demo prints all seven process IDs, probes the hostile executor for credentials/private keys, proves one exact capability works once, proves replay/widening/egress fail, restarts the recorder, tears down the executor, and emits a signed certificate. The scripted adversarial demo must report all ten synthetic campaigns contained.
 
 See `docs/ATTESTATION_TPM.md` and `docs/FIRECRACKER.md` before making TPM or VM-isolation claims.

@@ -12,6 +12,11 @@ from .attestation import DevelopmentAttestationProvider
 from .broker import CapabilityBroker, CapabilityError, CapabilityVerifier
 from .canonical import digest
 from .certificate import ContainmentCertificateBuilder
+from .component_ids import (
+    EXECUTOR_ATTESTATION_GUARDIAN,
+    REQUIRED_GUARDIANS,
+    STATIC_POLICY_GUARDIAN,
+)
 from .executor import SacrificialExecutor
 from .guardians import LineageBudgetGuardian, PolicyGuardian, SequenceGuardian
 from .models import ActionRequest, GuardianDecision, IssuedCapability, ValidationError
@@ -158,7 +163,7 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
         measurement = attestation['measurements']['executor']
         attestation_allowed = attestation['deviceId'] == request.executor_id
         attestation_decision = GuardianDecision(
-            'attestation',
+            EXECUTOR_ATTESTATION_GUARDIAN,
             attestation_allowed,
             'executor identity and measurement verified' if attestation_allowed else 'device identity mismatch',
             {
@@ -217,7 +222,7 @@ def _guardian_result(value: Any, request: ActionRequest) -> dict[str, Any]:
     decisions = result['decisions']
     if not isinstance(decisions, list) or not decisions:
         raise ProtocolError('guardian_quorum', 'guardian decisions are missing')
-    required = {'cerberus', 'attestation', 'aegis', 'talos'}
+    required = REQUIRED_GUARDIANS
     names: set[str] = set()
     for decision in decisions:
         _exact(decision, {'guardian', 'allowed', 'reason', 'evidence'}, 'guardian decision')
@@ -243,11 +248,15 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
             raise ProtocolError('authorization_denied', 'guardian quorum vetoed the request')
         if attestation['deviceId'] != request.executor_id:
             raise ProtocolError('attestation_device', 'attested device does not match executor')
-        cerberus = next(item for item in guardians['decisions'] if item['guardian'] == 'cerberus')
-        attestation_decision = next(
-            item for item in guardians['decisions'] if item['guardian'] == 'attestation'
+        static_policy = next(
+            item for item in guardians['decisions'] if item['guardian'] == STATIC_POLICY_GUARDIAN
         )
-        if cerberus['evidence'].get('policy_digest') != guardians['policy_digest']:
+        attestation_decision = next(
+            item
+            for item in guardians['decisions']
+            if item['guardian'] == EXECUTOR_ATTESTATION_GUARDIAN
+        )
+        if static_policy['evidence'].get('policy_digest') != guardians['policy_digest']:
             raise ProtocolError('policy_digest', 'static policy digest mismatch')
         expected_attestation = {
             'device_id': attestation['deviceId'],
@@ -262,7 +271,7 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
         }
         if attestation_decision['evidence'] != expected_attestation:
             raise ProtocolError('attestation_binding', 'guardian attestation evidence mismatch')
-        max_output_bytes = cerberus['evidence'].get('max_output_bytes')
+        max_output_bytes = static_policy['evidence'].get('max_output_bytes')
         if not isinstance(max_output_bytes, int):
             raise ProtocolError('policy_output', 'policy omitted output envelope')
         capability = broker.issue(

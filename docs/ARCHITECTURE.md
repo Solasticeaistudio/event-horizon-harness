@@ -6,30 +6,33 @@
 hostile request
       |
       v
-Neural Link Zero parser ----> Executor Attestation verifier
+Intent Canonicalizer ----> Executor Attestation verifier
       |                              |
       +--------> guardian quorum <---+
                          |
                          v
-                 signer / broker
+              Evidence Signing / broker
                          |
                  exact capability
                          v
                 sacrificial executor
 
-Every transition ----> external recorder ----> certificate builder
+Every transition ----> independent logical evidence recorder
+                                      |
+                                      v
+                         Evidence Chain Verification
 ```
 
 Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes communicate over stdin/stdout pipes using the same minimal protocol: four-byte big-endian length followed by canonical UTF-8 JSON. The protocol rejects duplicate keys, noncanonical encodings, unknown message types or fields, excessive bytes, strings, collections or nesting, expired deadlines, and excess requests.
 
 ## Authority flow
 
-1. Neural Link Zero parses and canonicalizes a typed request. It has no tool registry, signing key, network client, or execution authority.
+1. The Intent Canonicalizer parses and canonicalizes a typed request. It has no tool registry, signing key, network client, or execution authority.
 2. Executor Attestation verifies a verifier-issued one-time nonce, registered device/AK identity, signed measurement evidence, freshness, PCR selection, and policy. It returns evidence, never authorization.
-3. The guardian quorum evaluates static policy, budgets, suspicious transitions, and attestation. One permissive guardian cannot override another veto or widen static policy.
+3. The Static Policy Guardian, Executor Attestation Guardian, Lineage Budget Guardian, and Behavioral Transition Guardian each evaluate the same request. One permissive guardian cannot override another veto or widen static policy.
 4. The broker asks the isolated signer to mint a short-lived capability for the exact canonical request digest.
 5. The executor accepts only the public verification key and rechecks every binding before one pre-registered operation. Redemption state outside the executor prevents replay after executor compromise.
-6. The external recorder returns a signed receipt for every fixed-size event envelope. The certificate builder signs a certificate only after recorder verification and verified teardown.
+6. The independent logical evidence recorder returns a signed receipt for every fixed-size event envelope. Evidence Chain Verification signs a certificate only after recorder verification and verified teardown.
 
 ## Capability bindings
 
@@ -41,11 +44,11 @@ The capability commits to request ID and digest, session and agent, operation/re
 |---|---|---|
 | Protocol codec/schema | Canonical parsing and bounds | Policy, keys, execution |
 | Executor Attestation verifier | Identity and measurement decision | Authorization and capability key |
-| Static guardian/quorum coordinator | Subtractive policy and veto combination | Execution and signing key |
+| Static Policy Guardian and quorum coordinator | Subtractive policy and veto combination | Execution and signing key |
 | Signer/broker | Exact capability minting and redemption state | Workload code and arbitrary connectors |
 | Executor verifier/dispatcher | Binding checks and fixed operations | Capability private key and ambient credentials |
-| External recorder | Ordered authoritative evidence and receipts | Workload execution authority |
-| Certificate builder | Final evidence-domain validation and signature | Capability minting and workload access |
+| Independent logical evidence recorder | Ordered authoritative evidence and receipts | Workload execution authority |
+| Evidence Chain Verification | Final evidence-domain validation and signature | Capability minting and workload access |
 | Firecracker, host kernel, KVM, guest image, watchdog | Hardware cell isolation and teardown in KVM mode | External service credentials |
 | TPM, AK, `tpm2-tools`, Executor Attestation parser | Hardware identity/measurement evidence in TPM mode | Action authorization |
 

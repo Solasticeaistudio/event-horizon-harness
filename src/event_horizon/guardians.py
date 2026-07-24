@@ -5,6 +5,12 @@ from dataclasses import dataclass, field
 from typing import Iterable, Protocol
 
 from .attestation import AttestationError, AttestationProvider
+from .component_ids import (
+    BEHAVIORAL_TRANSITION_GUARDIAN,
+    EXECUTOR_ATTESTATION_GUARDIAN,
+    LINEAGE_BUDGET_GUARDIAN,
+    STATIC_POLICY_GUARDIAN,
+)
 from .models import ActionRequest, GuardianDecision
 from .policy import StaticPolicy
 
@@ -17,7 +23,7 @@ class Guardian(Protocol):
 @dataclass
 class PolicyGuardian:
     policy: StaticPolicy
-    name: str = "cerberus"
+    name: str = STATIC_POLICY_GUARDIAN
 
     def evaluate(self, request: ActionRequest) -> GuardianDecision:
         return self.policy.evaluate(request)
@@ -26,7 +32,7 @@ class PolicyGuardian:
 @dataclass
 class AttestationGuardian:
     provider: AttestationProvider
-    name: str = "attestation"
+    name: str = EXECUTOR_ATTESTATION_GUARDIAN
 
     def evaluate(self, request: ActionRequest) -> GuardianDecision:
         try:
@@ -63,7 +69,7 @@ class AttestationGuardian:
 class LineageBudgetGuardian:
     max_requests_per_session: int = 8
     max_denials_per_session: int = 3
-    name: str = "aegis"
+    name: str = LINEAGE_BUDGET_GUARDIAN
     _requests: dict[str, int] = field(default_factory=dict)
     _denials: dict[str, int] = field(default_factory=dict)
 
@@ -87,7 +93,7 @@ class SequenceGuardian:
         "shell.execute", "http.request", "package.install", "credential.read",
         "network.connect", "tool.register", "policy.modify"
     })
-    name: str = "talos"
+    name: str = BEHAVIORAL_TRANSITION_GUARDIAN
 
     def evaluate(self, request: ActionRequest) -> GuardianDecision:
         if request.operation in self.suspicious_operations:

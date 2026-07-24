@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from .broker import CapabilityBroker
+from .component_ids import EXECUTOR_ATTESTATION_GUARDIAN, STATIC_POLICY_GUARDIAN
 from .guardians import GuardianQuorum, LineageBudgetGuardian
 from .models import ActionRequest, IssuedCapability, ValidationError
 from .policy import StaticPolicy
@@ -15,7 +16,7 @@ class AuthorizationDenied(PermissionError):
 
 
 @dataclass
-class NeuralLinkZero:
+class IntentCanonicalizer:
     """The sole intent membrane. It has no execution authority."""
 
     policy: StaticPolicy
@@ -57,13 +58,15 @@ class NeuralLinkZero:
             self.recorder.append("request.denied", {"request_id": request.request_id})
             raise AuthorizationDenied("guardian veto")
 
-        attestation_decision = next(d for d in decisions if d.guardian == "attestation")
+        attestation_decision = next(
+            d for d in decisions if d.guardian == EXECUTOR_ATTESTATION_GUARDIAN
+        )
         measurement = str(attestation_decision.evidence["measurement"])
         device_id = str(attestation_decision.evidence["device_id"])
         attestation_digest = str(attestation_decision.evidence["attestation_result_digest"])
         attestation_bundle_digest = str(attestation_decision.evidence["bundle_digest"])
         verifier_policy_digest = str(attestation_decision.evidence["verifier_policy_digest"])
-        policy_decision = next(d for d in decisions if d.guardian == "cerberus")
+        policy_decision = next(d for d in decisions if d.guardian == STATIC_POLICY_GUARDIAN)
         max_output_bytes = int(policy_decision.evidence["max_output_bytes"])
         capability = self.broker.issue(
             request,

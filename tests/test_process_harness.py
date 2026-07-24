@@ -6,7 +6,7 @@ import unittest
 
 from event_horizon.canonical import digest
 from event_horizon.models import ActionRequest
-from event_horizon.neural_link_zero import AuthorizationDenied
+from event_horizon.intent_canonicalizer import AuthorizationDenied
 from event_horizon.process_harness import ProcessSeparatedHarness
 from event_horizon.protocol import ProtocolError
 

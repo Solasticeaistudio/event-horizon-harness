@@ -18,7 +18,7 @@ class CampaignResult:
     evidence: dict[str, Any]
 
 
-class NemesisCampaignRunner:
+class ScriptedAdversarialCampaignRunner:
     """Synthetic, owned escape campaigns with no unrestricted connectors."""
 
     def __init__(self, harness: ProcessSeparatedHarness):
@@ -56,8 +56,8 @@ class NemesisCampaignRunner:
     def _request(self, **overrides: Any) -> dict[str, Any]:
         self._counter += 1
         payload = {
-            'request_id': f'nemesis-{self._counter}',
-            'session_id': f'nemesis-session-{self._counter}',
+            'request_id': f'adversarial-{self._counter}',
+            'session_id': f'adversarial-session-{self._counter}',
             'agent_id': 'attacker-agent',
             'operation': 'object.read',
             'resource_id': 'target-source',
@@ -69,7 +69,7 @@ class NemesisCampaignRunner:
         return payload
 
     def _record(self, result: CampaignResult) -> CampaignResult:
-        self.harness.record('nemesis.campaign', asdict(result), source_id='nemesis')
+        self.harness.record('adversarial.campaign', asdict(result), source_id='adversarial-runner')
         return result
 
     def _denied_transition(self, name: str, service: str, operation: str, resource_id: str) -> CampaignResult:
@@ -145,7 +145,7 @@ class NemesisCampaignRunner:
         request, capability, attestation = self.harness.request_capability(self._request())
         session_request = ActionRequest.from_dict({
             **request.canonical_payload(),
-            'session_id': 'nemesis-stolen-session',
+            'session_id': 'adversarial-stolen-session',
         })
         executor_request = ActionRequest.from_dict({
             **request.canonical_payload(),

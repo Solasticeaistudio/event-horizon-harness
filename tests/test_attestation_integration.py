@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from event_horizon.certificate import ContainmentCertificateBuilder
+from event_horizon.component_ids import EXECUTOR_ATTESTATION_GUARDIAN
 from event_horizon.factory import build_local_harness
 
 
@@ -24,7 +25,8 @@ class ExecutorAttestationIntegrationTests(unittest.TestCase):
             })
             decisions = [
                 event for event in recorder.events()
-                if event["event_type"] == "guardian.decision" and event["payload"].get("guardian") == "attestation"
+                if event["event_type"] == "guardian.decision"
+                and event["payload"].get("guardian") == EXECUTOR_ATTESTATION_GUARDIAN
             ]
             self.assertEqual(len(decisions), 1)
             evidence = decisions[0]["payload"]["evidence"]

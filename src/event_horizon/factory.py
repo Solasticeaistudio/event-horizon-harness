@@ -9,7 +9,7 @@ from .broker import CapabilityBroker
 from .canonical import digest
 from .executor import SacrificialExecutor
 from .guardians import AttestationGuardian, GuardianQuorum, LineageBudgetGuardian, PolicyGuardian, SequenceGuardian
-from .neural_link_zero import NeuralLinkZero
+from .intent_canonicalizer import IntentCanonicalizer
 from .policy import OperationRule, StaticPolicy
 from .recorder import ExternalRecorder
 
@@ -50,7 +50,7 @@ def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
     ]
     quorum = GuardianQuorum(guardians)
     broker = CapabilityBroker(secrets.token_bytes(32), ttl_seconds=ttl_seconds)
-    neural = NeuralLinkZero(policy, quorum, broker, recorder, {"exec-1": measurement})
+    neural = IntentCanonicalizer(policy, quorum, broker, recorder, {"exec-1": measurement})
     verifier_policy_digest = digest({
         "provider": "attestation-development-bridge",
         "deviceId": "exec-1",
