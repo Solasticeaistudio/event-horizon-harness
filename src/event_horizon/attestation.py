@@ -15,7 +15,12 @@ class AttestationError(RuntimeError):
 
 
 class AttestationProvider(Protocol):
-    def verify_executor(self, executor_id: str) -> Mapping[str, Any]: ...
+    def verify_executor(
+        self,
+        executor_id: str,
+        session_id: str,
+        purpose: str,
+    ) -> Mapping[str, Any]: ...
 
 
 @dataclass
@@ -24,7 +29,12 @@ class StaticAttestationProvider:
 
     measurements: Mapping[str, str]
 
-    def verify_executor(self, executor_id: str) -> Mapping[str, Any]:
+    def verify_executor(
+        self,
+        executor_id: str,
+        session_id: str,
+        purpose: str,
+    ) -> Mapping[str, Any]:
         measurement = self.measurements.get(executor_id)
         if not measurement:
             raise AttestationError("executor has no trusted measurement")
@@ -36,6 +46,16 @@ class StaticAttestationProvider:
             "assuranceLevel": "development",
             "measurements": {"executor": measurement},
             "bundleDigest": "static-development-evidence",
+            "keyId": "static-development:no-external-authority",
+            "verifiedAt": "1970-01-01T00:00:00.000Z",
+            "nonceContext": {
+                "deviceId": executor_id,
+                "executorId": executor_id,
+                "sessionId": session_id,
+                "purpose": purpose,
+            },
+            "nonceIssuedAt": "1970-01-01T00:00:00.000Z",
+            "nonceExpiresAt": "1970-01-01T00:00:00.001Z",
         }
         result["verifierPolicyDigest"] = digest({
             "provider": "static-development",
@@ -60,7 +80,12 @@ class DevelopmentAttestationProvider:
     timeout_seconds: float = 10.0
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False)
 
-    def verify_executor(self, executor_id: str) -> Mapping[str, Any]:
+    def verify_executor(
+        self,
+        executor_id: str,
+        session_id: str,
+        purpose: str,
+    ) -> Mapping[str, Any]:
         seed = self.device_seeds.get(executor_id)
         if not seed:
             raise AttestationError("executor is not enrolled with Executor Attestation")
@@ -70,7 +95,7 @@ class DevelopmentAttestationProvider:
                 raise AttestationError(f"Executor Attestation bridge missing: {script}")
             try:
                 completed = subprocess.run(
-                    [self.node_binary, str(script), executor_id, seed],
+                    [self.node_binary, str(script), executor_id, seed, session_id, purpose],
                     cwd=self.attestation_root,
                     capture_output=True,
                     text=True,
@@ -90,6 +115,16 @@ class DevelopmentAttestationProvider:
                 raise AttestationError(str(result.get("failureReason", "attestation rejected")))
             if result.get("deviceId") != executor_id:
                 raise AttestationError("Executor Attestation result device identity mismatch")
+            expected_context = {
+                "deviceId": executor_id,
+                "executorId": executor_id,
+                "sessionId": session_id,
+                "purpose": purpose,
+            }
+            if result.get("nonceContext") != expected_context:
+                raise AttestationError("Executor Attestation result nonce context mismatch")
+            if not result.get("nonceIssuedAt") or not result.get("nonceExpiresAt"):
+                raise AttestationError("Executor Attestation result omitted nonce lifetime")
             measurements = result.get("measurements")
             if not isinstance(measurements, dict) or not measurements.get("executor"):
                 raise AttestationError("Executor Attestation result omitted executor measurement")

@@ -1,29 +1,56 @@
-import { createServer } from 'node:http';
-import { Verifier, type AttestationBundle } from '@event-horizon/attestation-core';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import {
+  Verifier,
+  type AttestationBundle,
+  type NonceContext,
+} from '@event-horizon/attestation-core';
 
 const verifier = new Verifier({ minTrustLevel: 'simulated', allowUnregisteredSimulator: false });
 const port = Number(process.env.PORT ?? 8787);
 
-function json(response: import('node:http').ServerResponse, status: number, body: unknown): void {
+function json(response: ServerResponse, status: number, body: unknown): void {
   const data = JSON.stringify(body);
   response.writeHead(status, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data) });
   response.end(data);
 }
 
+function readJson(request: IncomingMessage, response: ServerResponse, handle: (body: unknown) => void): void {
+  const chunks: Buffer[] = [];
+  request.on('data', chunk => chunks.push(Buffer.from(chunk)));
+  request.on('end', () => {
+    try {
+      handle(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
+    } catch (error) {
+      json(response, 400, { error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+}
+
 createServer((request, response) => {
-  if (request.method === 'GET' && request.url === '/health') return json(response, 200, { ok: true, mode: 'in-memory-development' });
-  if (request.method === 'GET' && request.url === '/v1/nonce') return json(response, 200, { nonce: verifier.nonceStore.issue() });
+  if (request.method === 'GET' && request.url === '/health') {
+    return json(response, 200, { ok: true, mode: 'in-memory-development' });
+  }
+  if (request.method === 'POST' && request.url === '/v1/nonce') {
+    readJson(request, response, (value) => {
+      const body = value as { context: NonceContext };
+      json(response, 200, { nonce: verifier.nonceAuthority.issue(body.context) });
+    });
+    return;
+  }
   if (request.method === 'POST' && request.url === '/v1/verify') {
-    const chunks: Buffer[] = [];
-    request.on('data', chunk => chunks.push(Buffer.from(chunk)));
-    request.on('end', () => {
-      try {
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { bundle: AttestationBundle; nonce: string; publicKeyPem?: string };
-        const result = verifier.verify(body.bundle, { nonce: body.nonce, publicKeyPem: body.publicKeyPem });
-        json(response, result.valid ? 200 : 401, result);
-      } catch (error) {
-        json(response, 400, { error: error instanceof Error ? error.message : String(error) });
-      }
+    readJson(request, response, (value) => {
+      const body = value as {
+        bundle: AttestationBundle;
+        nonce: string;
+        context: NonceContext;
+        publicKeyPem?: string;
+      };
+      const result = verifier.verify(body.bundle, {
+        nonce: body.nonce,
+        context: body.context,
+        publicKeyPem: body.publicKeyPem,
+      });
+      json(response, result.valid ? 200 : 401, result);
     });
     return;
   }

@@ -36,7 +36,11 @@ class AttestationGuardian:
 
     def evaluate(self, request: ActionRequest) -> GuardianDecision:
         try:
-            evidence = dict(self.provider.verify_executor(request.executor_id))
+            evidence = dict(self.provider.verify_executor(
+                request.executor_id,
+                request.session_id,
+                request.purpose,
+            ))
         except AttestationError as exc:
             return GuardianDecision(self.name, False, str(exc))
         measurement = dict(evidence.get("measurements", {})).get("executor")
@@ -44,9 +48,20 @@ class AttestationGuardian:
             return GuardianDecision(self.name, False, "verified evidence omitted executor measurement")
         if evidence.get("deviceId") != request.executor_id:
             return GuardianDecision(self.name, False, "verified device does not match requested executor")
-        required = ("bundleDigest", "resultDigest", "verifierPolicyDigest", "keyId")
+        required = (
+            "bundleDigest", "resultDigest", "verifierPolicyDigest", "keyId",
+            "nonceContext", "nonceIssuedAt", "nonceExpiresAt",
+        )
         if any(not evidence.get(name) for name in required):
             return GuardianDecision(self.name, False, "verified evidence omitted required binding")
+        expected_nonce_context = {
+            "deviceId": request.executor_id,
+            "executorId": request.executor_id,
+            "sessionId": request.session_id,
+            "purpose": request.purpose,
+        }
+        if evidence["nonceContext"] != expected_nonce_context:
+            return GuardianDecision(self.name, False, "verified nonce context does not match request")
         return GuardianDecision(
             self.name,
             True,
@@ -61,6 +76,9 @@ class AttestationGuardian:
                 "trust_level": evidence.get("trustLevel"),
                 "assurance_level": evidence.get("assuranceLevel"),
                 "key_id": evidence.get("keyId"),
+                "nonce_context": evidence.get("nonceContext"),
+                "nonce_issued_at": evidence.get("nonceIssuedAt"),
+                "nonce_expires_at": evidence.get("nonceExpiresAt"),
             },
         )
 

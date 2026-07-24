@@ -23,8 +23,12 @@ Hardware-development variables use the same `EH_ATTESTATION_` prefix and are doc
 
 ## Verification contract
 
-A successful result reports the method, trust and assurance levels, registered key identifier, independently verified measurements, canonical bundle digest, and verification time. Consumers must bind both the bundle digest and the complete verification-result digest into the same session and capability. They must not reinterpret a bundle field as a stronger trust level.
+A successful result reports the method, trust and assurance levels, registered key identifier, independently verified measurements, canonical bundle digest, nonce context and lifetime, and verification time. Consumers must bind both the bundle digest and the complete verification-result digest into the same session and capability. They must not reinterpret a bundle field as a stronger trust level.
 
 The outer verifier accepts only known method identifiers, selects a registered provider verifier, and passes the complete bundle plus challenge, registered key, time limits, measurement policy, and TPM enrollment context. Missing providers, provider exceptions, malformed results, and overclaimed simulator trust fail closed. Only the TPM provider can return hardware trust, and only after quote and whole-bundle validation succeeds.
 
-The fixed verifier tests cover method substitution, trust substitution, invalid TPM evidence, missing verifiers, nonce state, replay, and development-versus-hardware policy.
+Every successful verification consumes a challenge that the configured nonce authority previously issued or registered. The challenge is bound to device ID, executor ID, session ID, and purpose. Its immutable authority record also contains issuance and expiration timestamps. Consumption is one atomic `issued -> consumed` transition; expiration is `issued -> expired`. Unknown, malformed, expired, consumed, or wrong-context challenges fail closed.
+
+The shipped persistence implementation is atomic only inside one Node.js process. The persistence interface is suitable for a future Redis or transactional-database implementation, but that implementation must perform compare-and-transition as one server-side transaction. This repository does not claim distributed nonce atomicity.
+
+The fixed verifier tests cover method substitution, trust substitution, invalid TPM evidence, missing verifiers, nonce state and context, one-use concurrency, replay, and development-versus-hardware policy.

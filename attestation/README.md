@@ -15,7 +15,7 @@ Working now:
 - deterministic simulator prover;
 - Ed25519 proof signatures;
 - canonical proof bundles;
-- nonce issuance and one-time consumption;
+- context-bound nonce issuance and atomic one-time consumption in one verifier process;
 - proof replay detection;
 - device-key registration;
 - exact PCR-style measurement policies;

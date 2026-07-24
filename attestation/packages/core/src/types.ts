@@ -32,6 +32,7 @@ export type MeasurementRule = ExactMeasurementRule | OneOfMeasurementRule;
 
 export interface ProviderVerificationContext {
   nonce: string;
+  nonceContext: import('./nonce-authority.js').NonceContext;
   publicKeyPem: string;
   now: Date;
   maxProofAgeSeconds: number;
@@ -72,6 +73,7 @@ export interface VerifierConfig {
   deviceKeys?: Record<string, string>;
   allowUnregisteredSimulator?: boolean;
   nonceTtlSeconds?: number;
+  noncePersistence?: import('./nonce-authority.js').NoncePersistence;
   tpmAkQualifiedNames?: Record<string, string>;
   tpmPcrSelections?: Record<string, string[]>;
   requireTpmEventLog?: boolean;
@@ -89,6 +91,9 @@ export interface VerificationSuccess {
   keyId: string;
   measurements: Record<string, string>;
   bundleDigest: string;
+  nonceContext: import('./nonce-authority.js').NonceContext;
+  nonceIssuedAt: string;
+  nonceExpiresAt: string;
   verifiedAt: string;
 }
 
@@ -101,6 +106,8 @@ export interface VerificationFailure {
     | 'NONCE_UNKNOWN'
     | 'NONCE_EXPIRED'
     | 'NONCE_REPLAY'
+    | 'NONCE_CONTEXT_MISMATCH'
+    | 'MALFORMED_NONCE'
     | 'PROOF_REPLAY'
     | 'PROOF_EXPIRED'
     | 'PROOF_FROM_FUTURE'

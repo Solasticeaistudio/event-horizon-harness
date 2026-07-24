@@ -85,6 +85,9 @@ export class SimulatorAttestationVerifier implements AttestationProviderVerifier
     if (bundle.nonce !== context.nonce) {
       return providerFailure('NONCE_MISMATCH', 'simulator bundle is not bound to the challenge nonce');
     }
+    if (context.nonceContext.deviceId !== bundle.deviceId) {
+      return providerFailure('NONCE_CONTEXT_MISMATCH', 'simulator bundle device differs from nonce context');
+    }
     const freshnessFailure = verifyFreshness(bundle, context);
     if (freshnessFailure) return freshnessFailure;
     if (keyIdFromPublicKey(context.publicKeyPem) !== bundle.keyId) {
@@ -118,6 +121,9 @@ export class Tpm2AttestationVerifier implements AttestationProviderVerifier {
     }
     if (bundle.nonce !== context.nonce) {
       return providerFailure('NONCE_MISMATCH', 'TPM bundle is not bound to the challenge nonce');
+    }
+    if (context.nonceContext.deviceId !== bundle.deviceId) {
+      return providerFailure('NONCE_CONTEXT_MISMATCH', 'TPM bundle device differs from nonce context');
     }
     const freshnessFailure = verifyFreshness(bundle, context);
     if (freshnessFailure) return freshnessFailure;

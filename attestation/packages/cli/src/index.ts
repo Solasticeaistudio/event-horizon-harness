@@ -21,10 +21,16 @@ async function createDevelopmentBundle() {
   process.env.EH_ATTESTATION_ALLOW_SIMULATOR = '1';
   const simulator = new SimulatorProver({ deviceId, seed });
   const server = developmentServer(simulator);
-  const nonce = await server.nonce.issue();
+  const context = {
+    deviceId,
+    executorId: deviceId,
+    sessionId: 'eh-attest-development-session',
+    purpose: 'eh-attest-development-verification',
+  };
+  const nonce = await server.nonce.issue(context);
   const client = await Client.create({ deviceId, method: 'simulator', simulatorSeed: seed });
   const bundle = await client.prove({ nonce });
-  return { bundle, nonce, server };
+  return { bundle, context, nonce, server };
 }
 
 async function prove(): Promise<void> {
@@ -37,8 +43,8 @@ async function prove(): Promise<void> {
 }
 
 async function verify(): Promise<void> {
-  const { bundle, nonce, server } = await createDevelopmentBundle();
-  const result = await server.verify(bundle, { nonce });
+  const { bundle, context, nonce, server } = await createDevelopmentBundle();
+  const result = await server.verify(bundle, { nonce, context });
   console.log(JSON.stringify({
     warning: 'Development simulator verification; not hardware-backed attestation.',
     result,

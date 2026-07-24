@@ -328,7 +328,11 @@ class ProcessSeparatedHarness:
             attestation = self.call(
                 'verifier',
                 'verify_executor',
-                {'executor_id': request.executor_id},
+                {
+                    'executor_id': request.executor_id,
+                    'session_id': request.session_id,
+                    'purpose': request.purpose,
+                },
             )['attestation']
             self.record(
                 'attestation.verified',
@@ -338,6 +342,7 @@ class ProcessSeparatedHarness:
                     'result_digest': attestation['resultDigest'],
                     'bundle_digest': attestation['bundleDigest'],
                     'verifier_policy_digest': attestation['verifierPolicyDigest'],
+                    'nonce_context': attestation['nonceContext'],
                 },
             )
             guardian_result = self.call(

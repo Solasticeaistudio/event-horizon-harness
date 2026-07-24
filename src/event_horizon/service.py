@@ -52,6 +52,7 @@ def _action(value: Any) -> ActionRequest:
 ATTESTATION_FIELDS = {
     'valid', 'deviceId', 'method', 'trustLevel', 'assuranceLevel', 'keyId',
     'measurements', 'bundleDigest', 'verifiedAt', 'verifierPolicyDigest', 'resultDigest',
+    'nonceContext', 'nonceIssuedAt', 'nonceExpiresAt',
 }
 
 
@@ -128,17 +129,22 @@ def _verifier_specs(config_path: Path) -> dict[str, MessageSpec]:
 
     def verify_executor(body: dict[str, Any]) -> Mapping[str, Any]:
         executor_id = body['executor_id']
-        if not isinstance(executor_id, str) or not executor_id:
-            raise ProtocolError('invalid_executor', 'executor_id is invalid')
+        session_id = body['session_id']
+        purpose = body['purpose']
+        if not all(isinstance(item, str) and item for item in (executor_id, session_id, purpose)):
+            raise ProtocolError('invalid_attestation_context', 'attestation context is invalid')
         try:
-            result = dict(provider.verify_executor(executor_id))
+            result = dict(provider.verify_executor(executor_id, session_id, purpose))
         except Exception as exc:
             raise ProtocolError('attestation_unavailable', str(exc)) from exc
         return {'attestation': _attestation(result)}
 
     return {
         'info': MessageSpec(frozenset(), lambda _body: _info('verifier')),
-        'verify_executor': MessageSpec(frozenset({'executor_id'}), verify_executor),
+        'verify_executor': MessageSpec(
+            frozenset({'executor_id', 'session_id', 'purpose'}),
+            verify_executor,
+        ),
     }
 
 
@@ -176,6 +182,9 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
                 'trust_level': attestation['trustLevel'],
                 'assurance_level': attestation['assuranceLevel'],
                 'key_id': attestation['keyId'],
+                'nonce_context': attestation['nonceContext'],
+                'nonce_issued_at': attestation['nonceIssuedAt'],
+                'nonce_expires_at': attestation['nonceExpiresAt'],
             },
         )
         decisions = [
@@ -268,6 +277,9 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
             'trust_level': attestation['trustLevel'],
             'assurance_level': attestation['assuranceLevel'],
             'key_id': attestation['keyId'],
+            'nonce_context': attestation['nonceContext'],
+            'nonce_issued_at': attestation['nonceIssuedAt'],
+            'nonce_expires_at': attestation['nonceExpiresAt'],
         }
         if attestation_decision['evidence'] != expected_attestation:
             raise ProtocolError('attestation_binding', 'guardian attestation evidence mismatch')

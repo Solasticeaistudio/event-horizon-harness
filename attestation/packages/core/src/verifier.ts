@@ -1,5 +1,5 @@
 import { canonicalBytes, sha256 } from '@event-horizon/attestation-crypto';
-import { NonceStore } from './nonce-store.js';
+import { NonceAuthority, type NonceContext } from './nonce-authority.js';
 import { SimulatorAttestationVerifier, Tpm2AttestationVerifier } from './provider-verifiers.js';
 import type {
   AttestationBundle,
@@ -45,6 +45,8 @@ const FAILURE_CODES = new Set<VerificationFailure['failureCode']>([
   'NONCE_UNKNOWN',
   'NONCE_EXPIRED',
   'NONCE_REPLAY',
+  'NONCE_CONTEXT_MISMATCH',
+  'MALFORMED_NONCE',
   'PROOF_REPLAY',
   'PROOF_EXPIRED',
   'PROOF_FROM_FUTURE',
@@ -122,7 +124,7 @@ export class Verifier {
   private readonly deviceKeys = new Map<string, string>();
   private readonly consumedProofs = new Set<string>();
   private readonly providerVerifiers = new Map<AttestationMethod, AttestationProviderVerifier>();
-  readonly nonceStore: NonceStore;
+  readonly nonceAuthority: NonceAuthority;
 
   constructor(private readonly config: VerifierConfig = {}) {
     for (const [deviceId, key] of Object.entries(config.deviceKeys ?? {})) this.deviceKeys.set(deviceId, key);
@@ -131,9 +133,10 @@ export class Verifier {
       this.registerProviderVerifier(new Tpm2AttestationVerifier());
     }
     for (const providerVerifier of config.providerVerifiers ?? []) this.registerProviderVerifier(providerVerifier);
-    this.nonceStore = new NonceStore(
+    this.nonceAuthority = new NonceAuthority(
       config.nonceTtlSeconds ?? 60,
       () => (this.config.now?.() ?? new Date()).valueOf(),
+      config.noncePersistence,
     );
   }
 
@@ -149,7 +152,10 @@ export class Verifier {
     this.providerVerifiers.set(providerVerifier.method, providerVerifier);
   }
 
-  verify(bundle: AttestationBundle, options: { nonce: string; publicKeyPem?: string }): VerificationResult {
+  verify(
+    bundle: AttestationBundle,
+    options: { nonce: string; context: NonceContext; publicKeyPem?: string },
+  ): VerificationResult {
     const at = this.config.now?.() ?? new Date();
     if (!isBundleShape(bundle)) {
       return failure('MALFORMED_BUNDLE', 'bundle fields or types are invalid', at);
@@ -169,11 +175,6 @@ export class Verifier {
     if (this.consumedProofs.has(bundleDigest)) {
       return failure('PROOF_REPLAY', 'attestation bundle has already been accepted', at);
     }
-    const nonceStatus = this.nonceStore.status(options.nonce);
-    if (nonceStatus === 'unknown') return failure('NONCE_UNKNOWN', 'nonce was not issued by this verifier', at);
-    if (nonceStatus === 'expired') return failure('NONCE_EXPIRED', 'verifier challenge has expired', at);
-    if (nonceStatus === 'consumed') return failure('NONCE_REPLAY', 'nonce has already been consumed', at);
-
     let publicKeyPem = this.deviceKeys.get(bundle.deviceId);
     if (!publicKeyPem && bundle.method === 'simulator' && this.config.allowUnregisteredSimulator) {
       publicKeyPem = options.publicKeyPem;
@@ -184,6 +185,7 @@ export class Verifier {
     try {
       providerResult = providerVerifier.verify(bundle, {
         nonce: options.nonce,
+        nonceContext: options.context,
         publicKeyPem,
         now: at,
         maxProofAgeSeconds: this.config.maxProofAgeSeconds ?? 30,
@@ -227,8 +229,24 @@ export class Verifier {
         at,
       );
     }
-    if (!this.nonceStore.consume(options.nonce)) {
-      return failure('NONCE_REPLAY', 'nonce could not be consumed', at);
+    const nonceTransition = this.nonceAuthority.consume(options.nonce, options.context);
+    if (!nonceTransition.accepted) {
+      if (nonceTransition.status === 'unknown') {
+        return failure('NONCE_UNKNOWN', 'nonce was not issued or registered by this verifier', at);
+      }
+      if (nonceTransition.status === 'expired') {
+        return failure('NONCE_EXPIRED', 'verifier challenge has expired', at);
+      }
+      if (nonceTransition.status === 'wrong-context') {
+        return failure('NONCE_CONTEXT_MISMATCH', 'nonce context does not match its issuance binding', at);
+      }
+      if (nonceTransition.status === 'malformed') {
+        return failure('MALFORMED_NONCE', 'nonce or nonce context is malformed', at);
+      }
+      return failure('NONCE_REPLAY', 'nonce has already been consumed', at);
+    }
+    if (!nonceTransition.record) {
+      return failure('PROVIDER_RESULT_INVALID', 'nonce authority omitted the accepted transition record', at);
     }
 
     this.consumedProofs.add(bundleDigest);
@@ -241,6 +259,9 @@ export class Verifier {
       keyId: providerResult.keyId,
       measurements: { ...providerResult.measurements },
       bundleDigest,
+      nonceContext: { ...nonceTransition.record.context },
+      nonceIssuedAt: new Date(nonceTransition.record.issuedAt).toISOString(),
+      nonceExpiresAt: new Date(nonceTransition.record.expiresAt).toISOString(),
       verifiedAt: at.toISOString(),
     };
   }

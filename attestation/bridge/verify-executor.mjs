@@ -4,8 +4,10 @@ import { Verifier } from '../packages/core/dist/index.js';
 
 const deviceId = process.argv[2];
 const seed = process.argv[3];
-if (!deviceId || !seed) {
-  console.error('usage: verify-executor.mjs <device-id> <seed>');
+const sessionId = process.argv[4];
+const purpose = process.argv[5];
+if (!deviceId || !seed || !sessionId || !purpose) {
+  console.error('usage: verify-executor.mjs <device-id> <seed> <session-id> <purpose>');
   process.exit(2);
 }
 
@@ -16,8 +18,9 @@ const verifier = new Verifier({
   deviceKeys: { [deviceId]: prover.publicKeyPem },
   pcrPolicy: { executor: { type: 'exact', value: prover.measurements.executor } },
 });
-const nonce = verifier.nonceStore.issue();
+const context = { deviceId, executorId: deviceId, sessionId, purpose };
+const nonce = verifier.nonceAuthority.issue(context);
 const bundle = await prover.prove({ nonce });
-const result = verifier.verify(bundle, { nonce });
+const result = verifier.verify(bundle, { nonce, context });
 console.log(JSON.stringify(result));
 if (!result.valid) process.exitCode = 1;

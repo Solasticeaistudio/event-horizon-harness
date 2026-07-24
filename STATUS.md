@@ -19,6 +19,10 @@
 - Replaced caller-controlled trust mapping with a registered provider-verifier dispatch boundary.
 - Restricted simulator verification to development trust and enforced strict provider-result schemas.
 - Added TPM quote-signature plus whole-bundle attestation-key signature verification before hardware trust.
+- Replaced nonce equality checks with an authority-owned state machine and atomic one-use transition.
+- Bound every issued challenge to device, executor, session, purpose, issuance time, and expiration time.
+- Added an in-memory persistence implementation plus an explicit transactional persistence boundary without claiming distributed atomicity.
+- Propagated verified nonce context and lifetime through guardians, capabilities, process services, and evidence records.
 
 ## Tests executed
 
@@ -30,6 +34,7 @@
 - Prospective clean checkout: `npm ci`, Python virtual-environment install, all builds, all tests, demo, and certificate verification passed.
 - Functional-label regression: 16 TypeScript tests passed, 1 opt-in TPM test skipped, 36 Python tests passed, and the scripted adversarial demo passed.
 - Provider-dispatch regression: 26 TypeScript tests passed, 1 opt-in real-TPM test skipped, 36 Python tests passed, and all 8 TypeScript workspaces built.
+- Nonce-authority regression: 34 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 36 Python tests passed.
 
 ## Known failures
 
@@ -37,8 +42,7 @@
 
 ## Security limitations
 
-- Executor Attestation still requires provider-specific trust dispatch hardening.
-- Nonce context binding and concurrent one-use verification are not yet implemented.
+- Nonce atomicity is currently guaranteed only inside one verifier process; no Redis or transactional database backend ships yet.
 - The execution cell is not a production Firecracker deployment.
 - The simulator is development-only and is not hardware attestation.
 
@@ -59,6 +63,7 @@
 - `pyproject.toml`
 - Functional component IDs, intent canonicalizer, scripted adversarial runner, public architecture, and integration output
 - Attestation provider-verifier interfaces, simulator and TPM verifier implementations, Linux TPM bundle signing, and adversarial dispatch tests
+- Attestation nonce authority, persistence interface, verifier call sites, process-boundary context binding, and concurrency tests
 - `STATUS.md`
 
 ## Commands to reproduce
@@ -72,10 +77,10 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Replace nonce check-then-consume behavior with an atomic, context-bound, one-use nonce authority and concurrency tests.
+Remove any stale executor-attestation reuse and prove that measurement, policy, session, key, and executor changes require fresh verification.
 
 ## Exact next command
 
 ```powershell
-Get-Content attestation/packages/core/src/nonce-store.ts
+npm test
 ```

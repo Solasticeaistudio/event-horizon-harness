@@ -1,4 +1,10 @@
-import { Verifier, type AttestationBundle, type VerificationResult, type VerifierConfig } from '@event-horizon/attestation-core';
+import {
+  Verifier,
+  type AttestationBundle,
+  type NonceContext,
+  type VerificationResult,
+  type VerifierConfig,
+} from '@event-horizon/attestation-core';
 import { Emitter } from './emitter.js';
 import { AttestationError } from './errors.js';
 
@@ -15,7 +21,7 @@ export interface ServerEvents extends Record<string, unknown> {
   'verify.success': { deviceId: string; trustLevel: string };
   'verify.failed': { deviceId?: string; reason: string };
   'device.verified': { deviceId: string; trustLevel: string };
-  'nonce.issued': { nonce: string };
+  'nonce.issued': { nonce: string; context: NonceContext };
 }
 
 export class Server extends Emitter<ServerEvents> {
@@ -45,7 +51,10 @@ export class Server extends Emitter<ServerEvents> {
     this.verifier.registerDevice(deviceId, publicKeyPem);
   }
 
-  async verify(bundle: AttestationBundle, options: { nonce: string; publicKeyPem?: string }): Promise<VerificationResult> {
+  async verify(
+    bundle: AttestationBundle,
+    options: { nonce: string; context: NonceContext; publicKeyPem?: string },
+  ): Promise<VerificationResult> {
     this.emit('verify.started', { deviceId: bundle.deviceId });
     if (!this.verifier) throw new AttestationError('NOT_IMPLEMENTED', 'remote verification is not implemented');
     const result = this.verifier.verify(bundle, options);
@@ -59,10 +68,10 @@ export class Server extends Emitter<ServerEvents> {
   }
 
   readonly nonce = {
-    issue: async (): Promise<string> => {
+    issue: async (context: NonceContext): Promise<string> => {
       if (!this.verifier) throw new AttestationError('NOT_IMPLEMENTED', 'remote nonce issuance is not implemented');
-      const nonce = this.verifier.nonceStore.issue();
-      this.emit('nonce.issued', { nonce });
+      const nonce = this.verifier.nonceAuthority.issue(context);
+      this.emit('nonce.issued', { nonce, context });
       return nonce;
     },
   };
