@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import Iterable, Protocol
+
+from .attestation import AttestationError, AttestationProvider
+from .models import ActionRequest, GuardianDecision
+from .policy import StaticPolicy
+
+
+class Guardian(Protocol):
+    name: str
+    def evaluate(self, request: ActionRequest) -> GuardianDecision: ...
+
+
+@dataclass
+class PolicyGuardian:
+    policy: StaticPolicy
+    name: str = "cerberus"
+
+    def evaluate(self, request: ActionRequest) -> GuardianDecision:
+        return self.policy.evaluate(request)
+
+
+@dataclass
+class AttestationGuardian:
+    provider: AttestationProvider
+    name: str = "hardproof"
+
+    def evaluate(self, request: ActionRequest) -> GuardianDecision:
+        try:
+            evidence = dict(self.provider.verify_executor(request.executor_id))
+        except AttestationError as exc:
+            return GuardianDecision(self.name, False, str(exc))
+        measurement = dict(evidence.get("measurements", {})).get("executor")
+        if not measurement:
+            return GuardianDecision(self.name, False, "verified evidence omitted executor measurement")
+        return GuardianDecision(
+            self.name,
+            True,
+            "executor identity and measurement verified",
+            {
+                "measurement": measurement,
+                "bundle_digest": evidence.get("bundleDigest"),
+                "method": evidence.get("method"),
+                "trust_level": evidence.get("trustLevel"),
+                "assurance_level": evidence.get("assuranceLevel"),
+                "key_id": evidence.get("keyId"),
+            },
+        )
+
+
+@dataclass
+class LineageBudgetGuardian:
+    max_requests_per_session: int = 8
+    max_denials_per_session: int = 3
+    name: str = "aegis"
+    _requests: dict[str, int] = field(default_factory=dict)
+    _denials: dict[str, int] = field(default_factory=dict)
+
+    def evaluate(self, request: ActionRequest) -> GuardianDecision:
+        used = self._requests.get(request.session_id, 0)
+        denied = self._denials.get(request.session_id, 0)
+        if used >= self.max_requests_per_session:
+            return GuardianDecision(self.name, False, "session request budget exhausted")
+        if denied >= self.max_denials_per_session:
+            return GuardianDecision(self.name, False, "session denial budget exhausted")
+        self._requests[request.session_id] = used + 1
+        return GuardianDecision(self.name, True, "lineage budget available", {"used": used + 1})
+
+    def record_denial(self, session_id: str) -> None:
+        self._denials[session_id] = self._denials.get(session_id, 0) + 1
+
+
+@dataclass
+class SequenceGuardian:
+    suspicious_operations: frozenset[str] = frozenset({
+        "shell.execute", "http.request", "package.install", "credential.read",
+        "network.connect", "tool.register", "policy.modify"
+    })
+    name: str = "talos"
+
+    def evaluate(self, request: ActionRequest) -> GuardianDecision:
+        if request.operation in self.suspicious_operations:
+            return GuardianDecision(self.name, False, "operation is a prohibited escape primitive")
+        return GuardianDecision(self.name, True, "no prohibited transition detected")
+
+
+@dataclass
+class GuardianQuorum:
+    guardians: Iterable[Guardian]
+
+    def evaluate(self, request: ActionRequest) -> list[GuardianDecision]:
+        decisions = [g.evaluate(request) for g in self.guardians]
+        # Any veto blocks. Approvals cannot widen the static request.
+        return decisions
+
+    @staticmethod
+    def allowed(decisions: Iterable[GuardianDecision]) -> bool:
+        decisions = list(decisions)
+        return bool(decisions) and all(decision.allowed for decision in decisions)

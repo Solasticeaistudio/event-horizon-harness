@@ -1,0 +1,10 @@
+{
+  "name": "@hardproof/prover-tpm",
+  "version": "0.2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {".": {"import": "./dist/index.js", "types": "./dist/index.d.ts"}},
+  "dependencies": {"@hardproof/core": "0.2.0"},
+  "scripts": {"build": "tsc -p tsconfig.json"}
+}

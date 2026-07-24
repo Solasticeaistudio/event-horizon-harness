@@ -1,0 +1,18 @@
+test_argument_widening_is_denied_by_policy (test_authority.AuthorityTests.test_argument_widening_is_denied_by_policy) ... ok
+test_capability_cannot_be_widened_after_issue (test_authority.AuthorityTests.test_capability_cannot_be_widened_after_issue) ... ok
+test_cross_executor_use_is_denied (test_authority.AuthorityTests.test_cross_executor_use_is_denied) ... ok
+test_cross_session_use_is_denied (test_authority.AuthorityTests.test_cross_session_use_is_denied) ... ok
+test_exact_capability_succeeds_once (test_authority.AuthorityTests.test_exact_capability_succeeds_once) ... ok
+test_expired_capability_is_denied (test_authority.AuthorityTests.test_expired_capability_is_denied) ... ok
+test_one_permissive_guardian_cannot_widen_policy (test_authority.AuthorityTests.test_one_permissive_guardian_cannot_widen_policy) ... ok
+test_prohibited_operation_is_denied (test_authority.AuthorityTests.test_prohibited_operation_is_denied) ... ok
+test_recorder_tampering_is_detected (test_authority.AuthorityTests.test_recorder_tampering_is_detected) ... ok
+test_replay_is_denied (test_authority.AuthorityTests.test_replay_is_denied) ... ok
+test_unknown_request_field_is_rejected (test_authority.AuthorityTests.test_unknown_request_field_is_rejected) ... ok
+test_certificate_is_ed25519_signed_and_binds_attestation (test_hardproof_integration.HardProofIntegrationTests.test_certificate_is_ed25519_signed_and_binds_attestation) ... ok
+test_guardian_records_verified_hardproof_evidence (test_hardproof_integration.HardProofIntegrationTests.test_guardian_records_verified_hardproof_evidence) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.544s
+
+OK

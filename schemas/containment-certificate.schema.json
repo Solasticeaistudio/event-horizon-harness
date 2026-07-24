@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solsticestudio.ai/event-horizon/containment-certificate.v0.3.schema.json",
+  "title": "Event Horizon Containment Certificate v0.3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["certificate", "signature", "algorithm", "key_id", "public_key_pem"],
+  "properties": {
+    "key_id": {"type": "string", "pattern": "^ed25519:"},
+    "algorithm": {"const": "Ed25519"},
+    "signature": {"type": "string", "minLength": 40},
+    "public_key_pem": {"type": "string", "pattern": "BEGIN PUBLIC KEY"},
+    "certificate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "run_id", "session_id", "created_at", "event_count",
+        "event_chain_valid", "event_chain_tip", "completed_actions",
+        "denied_transitions", "hardproof_attestation_digests", "assertions"
+      ],
+      "properties": {
+        "schema": {"const": "event-horizon.containment-certificate.v0.3"},
+        "run_id": {"type": "string"},
+        "session_id": {"type": "string"},
+        "created_at": {"type": "number"},
+        "event_count": {"type": "integer", "minimum": 0},
+        "event_chain_valid": {"type": "boolean"},
+        "event_chain_tip": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "completed_actions": {"type": "integer", "minimum": 0},
+        "denied_transitions": {"type": "integer", "minimum": 0},
+        "hardproof_attestation_digests": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "uniqueItems": true
+        },
+        "assertions": {"type": "object", "additionalProperties": {"type": "boolean"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+
+> hardproof-rebuild@0.2.0 test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: simulator proof verifies
+ok 1 - simulator proof verifies
+  ---
+  duration_ms: 3.726023
+  type: 'test'
+  ...
+# Subtest: tampered measurement fails signature
+ok 2 - tampered measurement fails signature
+  ---
+  duration_ms: 1.380163
+  type: 'test'
+  ...
+# Subtest: nonce mismatch fails
+ok 3 - nonce mismatch fails
+  ---
+  duration_ms: 0.825358
+  type: 'test'
+  ...
+# Subtest: proof replay fails
+ok 4 - proof replay fails
+  ---
+  duration_ms: 1.365972
+  type: 'test'
+  ...
+# Subtest: measurement policy mismatch fails
+ok 5 - measurement policy mismatch fails
+  ---
+  duration_ms: 1.323088
+  type: 'test'
+  ...
+# Subtest: unknown device fails closed
+ok 6 - unknown device fails closed
+  ---
+  duration_ms: 0.918717
+  type: 'test'
+  ...
+# Subtest: sdk local path and bundle encoding work
+ok 7 - sdk local path and bundle encoding work
+  ---
+  duration_ms: 2.082559
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 64.353193

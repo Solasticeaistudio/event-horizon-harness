@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solsticestudio.ai/event-horizon/action-request.v0.3.schema.json",
+  "title": "Event Horizon Action Request v0.3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "session_id",
+    "agent_id",
+    "operation",
+    "resource_id",
+    "executor_id"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "operation": {
+      "enum": [
+        "object.read",
+        "compute.run"
+      ]
+    },
+    "resource_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "executor_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "arguments": {
+      "type": "object"
+    },
+    "purpose": {
+      "type": "string",
+      "maxLength": 1024
+    }
+  }
+}

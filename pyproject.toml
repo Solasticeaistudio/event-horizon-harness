@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "event-horizon-harness"
+version = "0.3.0"
+description = "Compromise-tolerant authority containment harness for autonomous agents"
+requires-python = ">=3.11"
+authors = [{name = "Justin Meister / Solstice AI Studio"}]
+license = {text = "Proprietary research prototype"}
+dependencies = ["cryptography>=42"]
+
+[project.scripts]
+event-horizon-demo = "event_horizon.demo:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
