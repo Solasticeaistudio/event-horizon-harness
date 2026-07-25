@@ -38,12 +38,12 @@ def main() -> None:
     print(f"    attacker found synthetic credential: {honey_credential}")
 
     print("\n[2] A narrowly permitted request succeeds once.")
-    request, capability = neural.request_capability(request_payload())
-    first = executor.execute(request, capability)
+    request, capability, attestation = neural.request_capability(request_payload())
+    first = executor.execute(request, capability, attestation)
     print(json.dumps(first.__dict__, indent=2, default=str))
 
     print("\n[3] Replaying the stolen capability fails.")
-    replay = executor.execute(request, capability)
+    replay = executor.execute(request, capability, attestation)
     print(json.dumps(replay.__dict__, indent=2, default=str))
 
     print("\n[4] Widening the request to smuggle a network destination fails.")

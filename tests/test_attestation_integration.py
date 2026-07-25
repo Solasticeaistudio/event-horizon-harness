@@ -52,7 +52,7 @@ class ExecutorAttestationIntegrationTests(unittest.TestCase):
     def test_certificate_is_ed25519_signed_and_binds_attestation(self):
         with tempfile.TemporaryDirectory() as tmp:
             neural, executor, recorder, _broker = build_local_harness(tmp)
-            request, capability = neural.request_capability({
+            request, capability, attestation = neural.request_capability({
                 "request_id": "cert-1",
                 "session_id": "cert-session",
                 "agent_id": "attacker-agent",
@@ -62,7 +62,7 @@ class ExecutorAttestationIntegrationTests(unittest.TestCase):
                 "arguments": {"offset": 0, "length": 10},
                 "purpose": "certificate test",
             })
-            executor.execute(request, capability)
+            executor.execute(request, capability, attestation)
             certificate = ContainmentCertificateBuilder(recorder, b"C" * 32).build(
                 run_id="cert-run",
                 session_id="cert-session",

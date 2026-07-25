@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Mapping
@@ -29,6 +30,13 @@ from .protected_boundary import (
 )
 from .recorder import ExternalRecorder
 from .replay_state import SqliteCapabilityConsumptionStore
+from .task_policy import (
+    ProviderTrustState,
+    TaskPolicySynthesizer,
+    TrustedPolicyCompiler,
+    default_policy_templates,
+    task_description_for_request,
+)
 
 
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
@@ -204,6 +212,10 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
         request = _action(body['request'])
         attestation = _attestation(body['attestation'])
         measurement = attestation['measurements']['executor']
+        try:
+            trust_state = ProviderTrustState.from_attestation(attestation)
+        except ValidationError as exc:
+            raise ProtocolError('attestation_trust', str(exc)) from exc
         attestation_allowed = attestation['deviceId'] == request.executor_id
         attestation_decision = GuardianDecision(
             EXECUTOR_ATTESTATION_GUARDIAN,
@@ -222,6 +234,8 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
                 'nonce_context': attestation['nonceContext'],
                 'nonce_issued_at': attestation['nonceIssuedAt'],
                 'nonce_expires_at': attestation['nonceExpiresAt'],
+                'provider_trust_state': trust_state.to_dict(),
+                'attestation_result': dict(attestation),
             },
             request.request_digest,
         )
@@ -309,9 +323,17 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
         'signer',
         {
             'ttl_seconds', 'signing_key_path', 'replay_database',
-            'replay_namespace', 'consumption_domain',
+            'replay_namespace', 'consumption_domain', 'policy',
             *PROTECTED_CONFIG_FIELDS,
         },
+    )
+    policy = _policy(config['policy'])
+    tool_actions = {'object-reader': frozenset({'object.read'})}
+    synthesizer = TaskPolicySynthesizer(default_policy_templates(), mode='rule')
+    compiler = TrustedPolicyCompiler(
+        policy,
+        tool_actions=tool_actions,
+        allowed_tenant_environments={'default': frozenset({'synthetic'})},
     )
     signing_seed = load_private_seed(config['signing_key_path'])
     request_authorizer = _protected_authorizer(config, 'capability-signer')
@@ -357,21 +379,31 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
             'nonce_context': attestation['nonceContext'],
             'nonce_issued_at': attestation['nonceIssuedAt'],
             'nonce_expires_at': attestation['nonceExpiresAt'],
+            'provider_trust_state': ProviderTrustState.from_attestation(attestation).to_dict(),
+            'attestation_result': dict(attestation),
         }
         if attestation_decision['evidence'] != expected_attestation:
             raise ProtocolError('attestation_binding', 'guardian attestation evidence mismatch')
         max_output_bytes = static_policy['evidence'].get('max_output_bytes')
         if not isinstance(max_output_bytes, int):
             raise ProtocolError('policy_output', 'policy omitted output envelope')
+        trust_state = ProviderTrustState.from_attestation(attestation)
+        task = task_description_for_request(request, policy, trust_state, tool_actions)
+        candidate = synthesizer.synthesize(task)
+        compiled_ceiling = compiler.compile(
+            task,
+            candidate,
+            now_ms=int(time.time() * 1000),
+        )
         capability = broker.issue(
             request,
             device_id=attestation['deviceId'],
             executor_measurement=attestation['measurements']['executor'],
-            attestation_digest=attestation['resultDigest'],
-            attestation_bundle_digest=attestation['bundleDigest'],
-            verifier_policy_digest=attestation['verifierPolicyDigest'],
+            trust_state=trust_state,
+            compiled_ceiling=compiled_ceiling,
             policy_digest=guardians['policy_digest'],
             max_output_bytes=max_output_bytes,
+            guardian_state_digest=digest(guardians['decisions']),
         )
         return {'capability': capability.to_dict()}
 
@@ -385,10 +417,9 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
                 request,
                 executor_measurement=attestation['measurements']['executor'],
                 device_id=attestation['deviceId'],
-                attestation_digest=attestation['resultDigest'],
-                attestation_bundle_digest=attestation['bundleDigest'],
+                attestation=attestation,
                 verifier_policy_digest=attestation['verifierPolicyDigest'],
-                policy_digest=capability.claims.policy_digest,
+                policy_digest=policy.policy_digest,
             )
         except CapabilityError as exc:
             raise ProtocolError('capability_denied', str(exc)) from exc

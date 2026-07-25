@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping
 
@@ -146,6 +146,23 @@ class CapabilityClaims:
     attestation_digest: str
     attestation_bundle_digest: str
     verifier_policy_digest: str
+    task_id: str
+    task_fingerprint: str
+    tenant: str
+    environment: str
+    audience: str
+    requested_trust: str
+    provider_attested_trust: str
+    effective_trust: str
+    signed_trust_constraint: str
+    attestation_method: str
+    attestation_key_id: str
+    compiled_ceiling: Mapping[str, Any]
+    compiled_ceiling_digest: str
+    guardian_state_digest: str
+    decay_profile_id: str
+    decay_profile_version: str
+    initial_authority_digest: str
     operation: str
     resource_id: str
     arguments_digest: str
@@ -158,7 +175,12 @@ class CapabilityClaims:
     ALLOWED_FIELDS = frozenset({
         'capability_id', 'issued_at', 'expires_at', 'session_id', 'agent_id',
         'executor_id', 'device_id', 'executor_measurement', 'attestation_digest',
-        'attestation_bundle_digest', 'verifier_policy_digest', 'operation',
+        'attestation_bundle_digest', 'verifier_policy_digest', 'task_id',
+        'task_fingerprint', 'tenant', 'environment', 'audience', 'requested_trust',
+        'provider_attested_trust', 'effective_trust', 'signed_trust_constraint',
+        'attestation_method', 'attestation_key_id', 'compiled_ceiling',
+        'compiled_ceiling_digest', 'guardian_state_digest', 'decay_profile_id',
+        'decay_profile_version', 'initial_authority_digest', 'operation',
         'resource_id', 'arguments_digest', 'request_digest', 'max_output_bytes',
         'invocation_limit', 'policy_digest', 'signer_key_id',
     })
@@ -167,15 +189,36 @@ class CapabilityClaims:
         if not _CAPABILITY_ID_RE.fullmatch(self.capability_id):
             raise ValidationError("capability_id is malformed")
         for name in (
-            "session_id", "agent_id", "executor_id", "device_id", "operation", "resource_id",
+            "session_id", "agent_id", "executor_id", "device_id", "task_id", "tenant",
+            "environment", "audience", "attestation_method", "attestation_key_id",
+            "decay_profile_id", "decay_profile_version", "operation", "resource_id",
         ):
             _validated_text(getattr(self, name), name, 256)
         for name in (
             "executor_measurement", "attestation_digest", "attestation_bundle_digest",
-            "verifier_policy_digest", "arguments_digest", "request_digest", "policy_digest",
+            "verifier_policy_digest", "task_fingerprint", "compiled_ceiling_digest",
+            "guardian_state_digest", "initial_authority_digest", "arguments_digest",
+            "request_digest", "policy_digest",
         ):
             if not isinstance(getattr(self, name), str) or not _DIGEST_RE.fullmatch(getattr(self, name)):
                 raise ValidationError(f"{name} must be a lowercase SHA-256 digest")
+        trust_tiers = {"simulated", "software", "hardware"}
+        for name in (
+            "requested_trust", "provider_attested_trust", "effective_trust",
+            "signed_trust_constraint",
+        ):
+            if getattr(self, name) not in trust_tiers:
+                raise ValidationError(f"{name} is not a supported trust tier")
+        if not isinstance(self.compiled_ceiling, Mapping):
+            raise ValidationError("compiled_ceiling must be an object")
+        _validate_security_json(self.compiled_ceiling)
+        try:
+            canonical_bytes(self.compiled_ceiling)
+        except CanonicalizationError as exc:
+            raise ValidationError(f"compiled ceiling is not canonical: {exc}") from exc
+        if self.compiled_ceiling.get("compiled_digest") != self.compiled_ceiling_digest:
+            raise ValidationError("compiled ceiling digest mismatch")
+        object.__setattr__(self, "compiled_ceiling", _freeze_json(self.compiled_ceiling))
         if not isinstance(self.signer_key_id, str) or not _KEY_ID_RE.fullmatch(self.signer_key_id):
             raise ValidationError("signer_key_id is malformed")
         if type(self.issued_at) is not int or type(self.expires_at) is not int:
@@ -188,7 +231,10 @@ class CapabilityClaims:
             raise ValidationError("only one-use capabilities are supported")
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {
+            name: _thaw_json(getattr(self, name))
+            for name in self.__dataclass_fields__
+        }
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> 'CapabilityClaims':
@@ -201,7 +247,8 @@ class CapabilityClaims:
                 f'invalid capability claim fields; unknown={sorted(unknown)}, missing={sorted(missing)}'
             )
         string_fields = cls.ALLOWED_FIELDS - {
-            'issued_at', 'expires_at', 'max_output_bytes', 'invocation_limit'
+            'issued_at', 'expires_at', 'max_output_bytes', 'invocation_limit',
+            'compiled_ceiling',
         }
         if any(not isinstance(payload[name], str) or not payload[name] for name in string_fields):
             raise ValidationError('capability string claims must be non-empty strings')

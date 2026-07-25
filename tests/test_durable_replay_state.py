@@ -12,6 +12,7 @@ from event_horizon.replay_state import (
     CapabilityConsumptionError,
     SqliteCapabilityConsumptionStore,
 )
+from scripts.capability_fixture_support import authority_context, issue_options, verify_options
 
 
 FIXED_NOW = 1_767_225_600.0
@@ -62,15 +63,14 @@ def capability_fixture():
         purpose="durable replay regression",
     )
     broker = CapabilityBroker(b"durable-capability-signing-seed!", ttl_seconds=60)
-    options = {
-        "executor_measurement": "1" * 64,
-        "device_id": "durable-device",
-        "attestation_digest": "2" * 64,
-        "attestation_bundle_digest": "3" * 64,
-        "verifier_policy_digest": "4" * 64,
-        "policy_digest": "5" * 64,
-    }
-    capability = broker.issue(request, max_output_bytes=1024, now=FIXED_NOW, **options)
+    authority = authority_context(request, FIXED_NOW)
+    options = verify_options(authority)
+    capability = broker.issue(
+        request,
+        max_output_bytes=1024,
+        now=FIXED_NOW,
+        **issue_options(authority),
+    )
     return broker, request, capability, options
 
 

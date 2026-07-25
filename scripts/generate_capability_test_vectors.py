@@ -14,7 +14,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from event_horizon.broker import capability_key_id
 from event_horizon.canonical import canonical_bytes, digest
-from event_horizon.models import CapabilityClaims, IssuedCapability
+from event_horizon.models import ActionRequest, CapabilityClaims, IssuedCapability
+from capability_fixture_support import authority_context, verify_options
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,14 +39,10 @@ def main() -> int:
         "arguments": {"length": 10, "offset": 0},
         "purpose": "public capability vector",
     }
-    context = {
-        "device_id": "exec-1",
-        "executor_measurement": "1" * 64,
-        "attestation_digest": "2" * 64,
-        "attestation_bundle_digest": "3" * 64,
-        "verifier_policy_digest": "4" * 64,
-        "policy_digest": "5" * 64,
-    }
+    authority = authority_context(ActionRequest.from_dict(request), ISSUED_AT / 1000)
+    context = verify_options(authority)
+    trust = authority["trust_state"]
+    compiled = authority["compiled_ceiling"]
     claims = CapabilityClaims(
         capability_id="cap_0123456789abcdef01234567",
         issued_at=ISSUED_AT,
@@ -55,9 +52,26 @@ def main() -> int:
         executor_id=request["executor_id"],
         device_id=context["device_id"],
         executor_measurement=context["executor_measurement"],
-        attestation_digest=context["attestation_digest"],
-        attestation_bundle_digest=context["attestation_bundle_digest"],
-        verifier_policy_digest=context["verifier_policy_digest"],
+        attestation_digest=trust.attestation_digest,
+        attestation_bundle_digest=trust.bundle_digest,
+        verifier_policy_digest=trust.verifier_policy_digest,
+        task_id=compiled.task_id,
+        task_fingerprint=compiled.task_fingerprint,
+        tenant=compiled.tenant,
+        environment=compiled.environment,
+        audience="effect-executor",
+        requested_trust=trust.requested_trust,
+        provider_attested_trust=trust.provider_attested_trust,
+        effective_trust=trust.effective_trust,
+        signed_trust_constraint=compiled.required_trust_tier,
+        attestation_method=trust.method,
+        attestation_key_id=trust.key_id,
+        compiled_ceiling=compiled.to_dict(),
+        compiled_ceiling_digest=compiled.compiled_digest,
+        guardian_state_digest=authority["guardian_state_digest"],
+        decay_profile_id=compiled.decay_profile,
+        decay_profile_version="v1",
+        initial_authority_digest=compiled.compiled_digest,
         operation=request["operation"],
         resource_id=request["resource_id"],
         arguments_digest=digest(request["arguments"]),
@@ -65,7 +79,7 @@ def main() -> int:
         max_output_bytes=4096,
         invocation_limit=1,
         signer_key_id=key_id,
-        policy_digest=context["policy_digest"],
+        policy_digest=authority["policy_digest"],
     )
     signature = base64.urlsafe_b64encode(
         private_key.sign(canonical_bytes(claims.to_dict()))

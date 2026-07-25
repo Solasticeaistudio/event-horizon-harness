@@ -13,6 +13,7 @@ from .intent_canonicalizer import IntentCanonicalizer
 from .policy import OperationRule, StaticPolicy
 from .recorder import ExternalRecorder
 from .replay_state import SqliteCapabilityConsumptionStore
+from .task_policy import TaskPolicySynthesizer, TrustedPolicyCompiler, default_policy_templates
 
 
 def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
@@ -52,6 +53,16 @@ def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
         SequenceGuardian(),
     ]
     quorum = GuardianQuorum(guardians)
+    tool_actions = {
+        "object-reader": frozenset({"object.read"}),
+        "safe-compute": frozenset({"compute.run"}),
+    }
+    policy_synthesizer = TaskPolicySynthesizer(default_policy_templates(), mode="rule")
+    policy_compiler = TrustedPolicyCompiler(
+        policy,
+        tool_actions=tool_actions,
+        allowed_tenant_environments={"default": frozenset({"synthetic"})},
+    )
     broker = CapabilityBroker(
         secrets.token_bytes(32),
         ttl_seconds=ttl_seconds,
@@ -61,7 +72,16 @@ def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
             domain="local-broker-executor",
         ),
     )
-    neural = IntentCanonicalizer(policy, quorum, broker, recorder, {"exec-1": measurement})
+    neural = IntentCanonicalizer(
+        policy,
+        quorum,
+        broker,
+        recorder,
+        {"exec-1": measurement},
+        policy_synthesizer,
+        policy_compiler,
+        tool_actions,
+    )
     verifier_policy_digest = digest({
         "provider": "attestation-development-bridge",
         "deviceId": "exec-1",

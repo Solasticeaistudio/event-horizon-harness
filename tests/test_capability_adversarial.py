@@ -14,6 +14,7 @@ from event_horizon.canonical import CanonicalizationError, digest, strict_json_l
 from event_horizon.guardians import GuardianQuorum
 from event_horizon.models import ActionRequest, GuardianDecision, IssuedCapability, ValidationError
 from scripts.verify_capability_vectors import verify_vector
+from scripts.capability_fixture_support import authority_context, issue_options, verify_options
 
 
 FIXED_NOW = 1_700_000_000.0
@@ -38,17 +39,11 @@ class CapabilityAdversarialTests(unittest.TestCase):
     def setUp(self):
         self.broker = CapabilityBroker(b"capability-adversarial-fixture-key", ttl_seconds=60)
         self.request = ActionRequest.from_dict(request_payload())
-        self.context = {
-            "device_id": "exec-1",
-            "executor_measurement": "1" * 64,
-            "attestation_digest": "2" * 64,
-            "attestation_bundle_digest": "3" * 64,
-            "verifier_policy_digest": "4" * 64,
-            "policy_digest": "5" * 64,
-        }
+        self.authority = authority_context(self.request, FIXED_NOW)
+        self.context = verify_options(self.authority)
         self.capability = self.broker.issue(
             self.request,
-            **self.context,
+            **issue_options(self.authority),
             max_output_bytes=4096,
             now=FIXED_NOW,
         )

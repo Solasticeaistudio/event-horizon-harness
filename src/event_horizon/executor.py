@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
 from .broker import CapabilityBroker, CapabilityVerifier
-from .canonical import digest
 from .models import ActionRequest, ExecutionResult, IssuedCapability
 from .recorder import ExternalRecorder
 
@@ -19,6 +18,8 @@ class SacrificialExecutor:
     policy_digest: str
     broker: CapabilityBroker | CapabilityVerifier
     recorder: ExternalRecorder
+    tenant: str = "default"
+    environment: str = "synthetic"
     objects: dict[str, Any] = field(default_factory=dict)
     compute_profiles: dict[str, Callable[[dict[str, Any]], Any]] = field(default_factory=dict)
 
@@ -26,29 +27,19 @@ class SacrificialExecutor:
         self,
         request: ActionRequest,
         capability: IssuedCapability,
-        attestation: Mapping[str, Any] | None = None,
+        attestation: Mapping[str, Any],
     ) -> ExecutionResult:
         try:
-            attestation_digest = None
-            bundle_digest = None
-            if attestation is not None:
-                attestation_copy = dict(attestation)
-                attestation_digest = str(attestation_copy.pop("resultDigest", ""))
-                if not attestation_digest or digest(attestation_copy) != attestation_digest:
-                    raise PermissionError("attestation result digest mismatch")
-                bundle_digest = str(attestation_copy.get("bundleDigest", ""))
-                measurements = attestation_copy.get("measurements", {})
-                if not isinstance(measurements, Mapping) or measurements.get("executor") != self.measurement:
-                    raise PermissionError("attested executor measurement mismatch")
             claims = self.broker.verify_and_consume(
                 capability,
                 request,
                 executor_measurement=self.measurement,
                 device_id=self.device_id,
-                attestation_digest=attestation_digest,
-                attestation_bundle_digest=bundle_digest,
+                attestation=attestation,
                 verifier_policy_digest=self.verifier_policy_digest,
                 policy_digest=self.policy_digest,
+                tenant=self.tenant,
+                environment=self.environment,
             )
             if request.operation == "object.read":
                 if request.resource_id not in self.objects:

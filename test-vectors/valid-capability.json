@@ -4,34 +4,128 @@
     "claims": {
       "agent_id": "attacker-agent",
       "arguments_digest": "80809302a08812c0b40f31431ee386cc55f35bc67a52dfad2d1c14677371e9e4",
-      "attestation_bundle_digest": "3333333333333333333333333333333333333333333333333333333333333333",
-      "attestation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "attestation_bundle_digest": "46773d972cc982c1e0f0198469a863ceacc7b62da455c9d84fe5b55fbf99e810",
+      "attestation_digest": "6d5adf3bc1f91e7664b9254d97a840d8c8ceab1e0dfdbbf4fe5dfc254f5769b1",
+      "attestation_key_id": "fixture-attestation-key",
+      "attestation_method": "simulator",
+      "audience": "effect-executor",
       "capability_id": "cap_0123456789abcdef01234567",
+      "compiled_ceiling": {
+        "action_resources": {
+          "object.read": [
+            "target-source"
+          ]
+        },
+        "actions": [
+          "object.read"
+        ],
+        "argument_constraints": {
+          "object.read": [
+            "length",
+            "offset"
+          ]
+        },
+        "candidate_digest": "0823f73630c324cbe968ad5071f355a65fca7e4721d599e3a317860991fea92e",
+        "ceiling_id": "ceil_e112904355d0d5b35babc262",
+        "compiled_digest": "da97e512a10d1f524d1696faed6a2698c11c0f10bd81b9971443159e0ffcc925",
+        "compiler_version": "trusted-policy-compiler-v1",
+        "data_classes": [
+          "internal"
+        ],
+        "decay_profile": "short-lived-default",
+        "environment": "synthetic",
+        "expires_at_ms": 1700000060000,
+        "guardian_reductions_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "human_approval_gates": [],
+        "issued_at_ms": 1700000000000,
+        "maximum_calls": 1,
+        "maximum_duration_seconds": 60,
+        "maximum_parallelism": 1,
+        "maximum_read_bytes": 4096,
+        "maximum_write_bytes": 0,
+        "network_destinations": [],
+        "policy_version": "fixture-policy-v1",
+        "provider_attestation_digest": "6d5adf3bc1f91e7664b9254d97a840d8c8ceab1e0dfdbbf4fe5dfc254f5769b1",
+        "provider_bundle_digest": "46773d972cc982c1e0f0198469a863ceacc7b62da455c9d84fe5b55fbf99e810",
+        "provider_key_id": "fixture-attestation-key",
+        "provider_method": "simulator",
+        "provider_trust": "simulated",
+        "required_attestations": [
+          "executor"
+        ],
+        "required_trust_tier": "simulated",
+        "schema": "event-horizon.compiled-task-ceiling.v1",
+        "subject_id": "attacker-agent",
+        "synthesizer_version": "task-policy-synthesizer-v1",
+        "task_fingerprint": "3d68beb7b181f4af3bf4dca496d320acc9d13f863c4fb30265ba821cdc87be18",
+        "task_id": "vector-request",
+        "tenant": "default",
+        "tools": [
+          "fixture-tool"
+        ],
+        "workload_identity": "exec-1"
+      },
+      "compiled_ceiling_digest": "da97e512a10d1f524d1696faed6a2698c11c0f10bd81b9971443159e0ffcc925",
+      "decay_profile_id": "short-lived-default",
+      "decay_profile_version": "v1",
       "device_id": "exec-1",
+      "effective_trust": "simulated",
+      "environment": "synthetic",
       "executor_id": "exec-1",
       "executor_measurement": "1111111111111111111111111111111111111111111111111111111111111111",
       "expires_at": 1700000060000,
+      "guardian_state_digest": "5f800d7555c1b7b273215ce522129f6fbcf4fa9907e4b62fe6f703b96632aed4",
+      "initial_authority_digest": "da97e512a10d1f524d1696faed6a2698c11c0f10bd81b9971443159e0ffcc925",
       "invocation_limit": 1,
       "issued_at": 1700000000000,
       "max_output_bytes": 4096,
       "operation": "object.read",
-      "policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "policy_digest": "07e55b9f93b521e9b0d980a9653cb452f1874b76eedd28224db345c06f666b3d",
+      "provider_attested_trust": "simulated",
       "request_digest": "0b48d7c702c14da5842982cf3990ef35faed67afaaed3cc8948703c40c316c93",
+      "requested_trust": "simulated",
       "resource_id": "target-source",
       "session_id": "vector-session",
+      "signed_trust_constraint": "simulated",
       "signer_key_id": "ed25519:05ec121c848971ec91ef72e054869e1d",
-      "verifier_policy_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+      "task_fingerprint": "3d68beb7b181f4af3bf4dca496d320acc9d13f863c4fb30265ba821cdc87be18",
+      "task_id": "vector-request",
+      "tenant": "default",
+      "verifier_policy_digest": "78b2cb43894319a78e6a2d3292e36d7ddef3c582e11cc33a00b68f2affee14f5"
     },
     "key_id": "ed25519:05ec121c848971ec91ef72e054869e1d",
-    "signature": "rQPFZMNfk8kCxKMW5Wg6w0rsaKoP5cdu0ZkLkGF6g6VWh4vLeaNaFy0P6cSwxmWbaifo0sDihj_blOKsJye5Cg"
+    "signature": "t88kH42vFAH3UMt_YWvx_hJzyNhikPs3znY9WY6Zh11b2H7NnrsEqWpf2Zb2GAQyMm_c-KpxwIWRPze-iPvtAA"
   },
   "context": {
-    "attestation_bundle_digest": "3333333333333333333333333333333333333333333333333333333333333333",
-    "attestation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "attestation": {
+      "assuranceLevel": "test-fixture",
+      "bundleDigest": "46773d972cc982c1e0f0198469a863ceacc7b62da455c9d84fe5b55fbf99e810",
+      "deviceId": "exec-1",
+      "keyId": "fixture-attestation-key",
+      "measurements": {
+        "executor": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "method": "simulator",
+      "nonceContext": {
+        "deviceId": "exec-1",
+        "executorId": "exec-1",
+        "purpose": "public capability vector",
+        "sessionId": "vector-session"
+      },
+      "nonceExpiresAt": "2023-11-14T22:18:20.000Z",
+      "nonceIssuedAt": "2023-11-14T22:13:19.000Z",
+      "resultDigest": "6d5adf3bc1f91e7664b9254d97a840d8c8ceab1e0dfdbbf4fe5dfc254f5769b1",
+      "trustLevel": "simulated",
+      "valid": true,
+      "verifiedAt": "2023-11-14T22:13:19.000Z",
+      "verifierPolicyDigest": "78b2cb43894319a78e6a2d3292e36d7ddef3c582e11cc33a00b68f2affee14f5"
+    },
     "device_id": "exec-1",
+    "environment": "synthetic",
     "executor_measurement": "1111111111111111111111111111111111111111111111111111111111111111",
-    "policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
-    "verifier_policy_digest": "4444444444444444444444444444444444444444444444444444444444444444"
+    "policy_digest": "07e55b9f93b521e9b0d980a9653cb452f1874b76eedd28224db345c06f666b3d",
+    "tenant": "default",
+    "verifier_policy_digest": "78b2cb43894319a78e6a2d3292e36d7ddef3c582e11cc33a00b68f2affee14f5"
   },
   "description": "Valid exact one-use capability.",
   "expected": {

@@ -6,7 +6,7 @@ import math
 import re
 import secrets
 import time
-from typing import Any
+from typing import Any, Mapping
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
@@ -15,6 +15,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from .canonical import canonical_bytes, digest
 from .models import ActionRequest, CapabilityClaims, IssuedCapability
 from .replay_state import CapabilityConsumptionStore, InMemoryCapabilityConsumptionStore
+from .task_policy import (
+    CompiledTaskPolicyCeiling,
+    ProviderTrustState,
+    TRUST_ORDER,
+)
 
 
 class CapabilityError(PermissionError):
@@ -55,11 +60,13 @@ def _verified_claims(
     request: ActionRequest,
     *,
     executor_measurement: str,
-    device_id: str | None,
-    attestation_digest: str | None,
-    attestation_bundle_digest: str | None,
-    verifier_policy_digest: str | None,
-    policy_digest: str | None,
+    device_id: str,
+    attestation: Mapping[str, Any],
+    verifier_policy_digest: str,
+    policy_digest: str,
+    audience: str,
+    tenant: str,
+    environment: str,
     now: float | None,
 ) -> CapabilityClaims:
     try:
@@ -82,28 +89,118 @@ def _verified_claims(
     if current_ms >= claims.expires_at:
         raise CapabilityError("capability expired")
 
-    def expected(value: str | None, fallback: str) -> str:
-        return fallback if value is None else value
-
     request_payload = request.canonical_payload()
     reconstructed_request_digest = digest(request_payload)
     reconstructed_arguments_digest = digest(request_payload["arguments"])
+    request_bindings = {
+        "session_id": (claims.session_id, request.session_id),
+        "agent_id": (claims.agent_id, request.agent_id),
+        "executor_id": (claims.executor_id, request.executor_id),
+        "operation": (claims.operation, request.operation),
+        "resource_id": (claims.resource_id, request.resource_id),
+        "arguments_digest": (claims.arguments_digest, reconstructed_arguments_digest),
+        "request_digest": (claims.request_digest, reconstructed_request_digest),
+    }
+    request_mismatches = [
+        name for name, pair in request_bindings.items() if pair[0] != pair[1]
+    ]
+    if request_mismatches:
+        raise CapabilityError(f"capability binding mismatch: {sorted(request_mismatches)}")
+
+    try:
+        current_trust = ProviderTrustState.from_attestation(
+            attestation,
+            requested_trust=claims.requested_trust,
+        )
+        compiled = CompiledTaskPolicyCeiling.from_dict(claims.compiled_ceiling)
+    except (TypeError, ValueError) as exc:
+        raise CapabilityError(f"current authority context is invalid: {exc}") from exc
+    measurements = attestation.get("measurements")
+    if not isinstance(measurements, Mapping):
+        raise CapabilityError("current attestation measurements are invalid")
+    nonce_context = attestation.get("nonceContext")
+    expected_nonce_context = {
+        "deviceId": request.executor_id,
+        "executorId": request.executor_id,
+        "sessionId": request.session_id,
+        "purpose": request.purpose,
+    }
+    if nonce_context != expected_nonce_context:
+        raise CapabilityError("current attestation nonce context mismatch")
+    if current_ms >= current_trust.expires_at_ms:
+        raise CapabilityError("current provider attestation expired")
+    if TRUST_ORDER[current_trust.effective_trust] < TRUST_ORDER[claims.signed_trust_constraint]:
+        raise CapabilityError("current provider trust is below the signed constraint")
+    if not compiled.permits(request):
+        raise CapabilityError("compiled task policy ceiling does not permit the request")
+
     bindings = {
         "session_id": (claims.session_id, request.session_id),
         "agent_id": (claims.agent_id, request.agent_id),
         "executor_id": (claims.executor_id, request.executor_id),
-        "device_id": (claims.device_id, expected(device_id, claims.device_id)),
+        "device_id": (claims.device_id, device_id),
         "executor_measurement": (claims.executor_measurement, executor_measurement),
-        "attestation_digest": (claims.attestation_digest, expected(attestation_digest, claims.attestation_digest)),
+        "current_attested_device": (device_id, str(attestation.get("deviceId", ""))),
+        "current_attested_measurement": (
+            executor_measurement,
+            str(measurements.get("executor", "")),
+        ),
+        "attestation_digest": (claims.attestation_digest, current_trust.attestation_digest),
         "attestation_bundle_digest": (
             claims.attestation_bundle_digest,
-            expected(attestation_bundle_digest, claims.attestation_bundle_digest),
+            current_trust.bundle_digest,
         ),
         "verifier_policy_digest": (
             claims.verifier_policy_digest,
-            expected(verifier_policy_digest, claims.verifier_policy_digest),
+            current_trust.verifier_policy_digest,
         ),
-        "policy_digest": (claims.policy_digest, expected(policy_digest, claims.policy_digest)),
+        "current_verifier_policy_digest": (
+            current_trust.verifier_policy_digest,
+            verifier_policy_digest,
+        ),
+        "attestation_method": (claims.attestation_method, current_trust.method),
+        "attestation_key_id": (claims.attestation_key_id, current_trust.key_id),
+        "provider_attested_trust": (
+            claims.provider_attested_trust,
+            current_trust.provider_attested_trust,
+        ),
+        "effective_trust": (claims.effective_trust, current_trust.effective_trust),
+        "policy_digest": (claims.policy_digest, policy_digest),
+        "audience": (claims.audience, audience),
+        "current_tenant": (claims.tenant, tenant),
+        "current_environment": (claims.environment, environment),
+        "task_id": (claims.task_id, compiled.task_id),
+        "task_fingerprint": (claims.task_fingerprint, compiled.task_fingerprint),
+        "tenant": (claims.tenant, compiled.tenant),
+        "environment": (claims.environment, compiled.environment),
+        "compiled_ceiling_digest": (
+            claims.compiled_ceiling_digest,
+            compiled.compiled_digest,
+        ),
+        "decay_profile_id": (claims.decay_profile_id, compiled.decay_profile),
+        "initial_authority_digest": (
+            claims.initial_authority_digest,
+            compiled.compiled_digest,
+        ),
+        "compiled_subject": (claims.agent_id, compiled.subject_id),
+        "compiled_workload": (claims.executor_id, compiled.workload_identity),
+        "compiled_attestation": (
+            claims.attestation_digest,
+            compiled.provider_attestation_digest,
+        ),
+        "compiled_bundle": (
+            claims.attestation_bundle_digest,
+            compiled.provider_bundle_digest,
+        ),
+        "compiled_attestation_method": (
+            claims.attestation_method,
+            compiled.provider_method,
+        ),
+        "compiled_attestation_key": (
+            claims.attestation_key_id,
+            compiled.provider_key_id,
+        ),
+        "compiled_trust": (claims.effective_trust, compiled.provider_trust),
         "signer_key_id": (claims.signer_key_id, parsed.key_id),
         "operation": (claims.operation, request.operation),
         "resource_id": (claims.resource_id, request.resource_id),
@@ -163,21 +260,25 @@ class CapabilityVerifier:
         request: ActionRequest,
         *,
         executor_measurement: str,
-        device_id: str | None = None,
-        attestation_digest: str | None = None,
-        attestation_bundle_digest: str | None = None,
-        verifier_policy_digest: str | None = None,
-        policy_digest: str | None = None,
+        device_id: str,
+        attestation: Mapping[str, Any],
+        verifier_policy_digest: str,
+        policy_digest: str,
+        audience: str = "effect-executor",
+        tenant: str = "default",
+        environment: str = "synthetic",
         now: float | None = None,
     ) -> CapabilityClaims:
         claims = _verified_claims(
             self._public_key, self.key_id, capability, request,
             executor_measurement=executor_measurement,
             device_id=device_id,
-            attestation_digest=attestation_digest,
-            attestation_bundle_digest=attestation_bundle_digest,
+            attestation=attestation,
             verifier_policy_digest=verifier_policy_digest,
             policy_digest=policy_digest,
+            audience=audience,
+            tenant=tenant,
+            environment=environment,
             now=now,
         )
         _consume_once(self.consumption_store, claims, now)
@@ -234,30 +335,75 @@ class CapabilityBroker:
         *,
         device_id: str,
         executor_measurement: str,
-        attestation_digest: str,
-        attestation_bundle_digest: str,
-        verifier_policy_digest: str,
+        trust_state: ProviderTrustState,
+        compiled_ceiling: CompiledTaskPolicyCeiling,
         policy_digest: str,
         max_output_bytes: int,
+        guardian_state_digest: str,
+        audience: str = "effect-executor",
+        decay_profile_version: str = "v1",
         now: float | None = None,
     ) -> IssuedCapability:
         issued_at = _now_ms(now)
         ttl_ms = max(1, math.ceil(self.ttl_seconds * 1000))
+        if not isinstance(trust_state, ProviderTrustState):
+            raise CapabilityError("provider-derived trust is required for capability issuance")
+        if not isinstance(compiled_ceiling, CompiledTaskPolicyCeiling):
+            raise CapabilityError("compiled task policy ceiling is required for capability issuance")
+        try:
+            compiled_ceiling.verify_integrity()
+        except (TypeError, ValueError) as exc:
+            raise CapabilityError(f"compiled task policy ceiling is invalid: {exc}") from exc
+        if not compiled_ceiling.permits(request):
+            raise CapabilityError("compiled task policy ceiling does not permit the request")
+        if compiled_ceiling.policy_version == "" or not policy_digest:
+            raise CapabilityError("current policy authority is unavailable")
+        if compiled_ceiling.provider_attestation_digest != trust_state.attestation_digest:
+            raise CapabilityError("compiled ceiling attestation binding mismatch")
+        if compiled_ceiling.provider_bundle_digest != trust_state.bundle_digest:
+            raise CapabilityError("compiled ceiling bundle binding mismatch")
+        if compiled_ceiling.provider_key_id != trust_state.key_id:
+            raise CapabilityError("compiled ceiling provider key binding mismatch")
+        if compiled_ceiling.provider_method != trust_state.method:
+            raise CapabilityError("compiled ceiling provider method binding mismatch")
+        if compiled_ceiling.provider_trust != trust_state.effective_trust:
+            raise CapabilityError("compiled ceiling provider trust binding mismatch")
+        if issued_at >= trust_state.expires_at_ms:
+            raise CapabilityError("provider-derived trust has expired")
+        if not re.fullmatch(r"[0-9a-f]{64}", guardian_state_digest):
+            raise CapabilityError("guardian state digest is invalid")
         request_payload = request.canonical_payload()
         request_digest = digest(request_payload)
         arguments_digest = digest(request_payload["arguments"])
         claims = CapabilityClaims(
             capability_id=f"cap_{secrets.token_hex(12)}",
             issued_at=issued_at,
-            expires_at=issued_at + ttl_ms,
+            expires_at=min(issued_at + ttl_ms, compiled_ceiling.expires_at_ms),
             session_id=request.session_id,
             agent_id=request.agent_id,
             executor_id=request.executor_id,
             device_id=device_id,
             executor_measurement=executor_measurement,
-            attestation_digest=attestation_digest,
-            attestation_bundle_digest=attestation_bundle_digest,
-            verifier_policy_digest=verifier_policy_digest,
+            attestation_digest=trust_state.attestation_digest,
+            attestation_bundle_digest=trust_state.bundle_digest,
+            verifier_policy_digest=trust_state.verifier_policy_digest,
+            task_id=compiled_ceiling.task_id,
+            task_fingerprint=compiled_ceiling.task_fingerprint,
+            tenant=compiled_ceiling.tenant,
+            environment=compiled_ceiling.environment,
+            audience=audience,
+            requested_trust=trust_state.requested_trust,
+            provider_attested_trust=trust_state.provider_attested_trust,
+            effective_trust=trust_state.effective_trust,
+            signed_trust_constraint=compiled_ceiling.required_trust_tier,
+            attestation_method=trust_state.method,
+            attestation_key_id=trust_state.key_id,
+            compiled_ceiling=compiled_ceiling.to_dict(),
+            compiled_ceiling_digest=compiled_ceiling.compiled_digest,
+            guardian_state_digest=guardian_state_digest,
+            decay_profile_id=compiled_ceiling.decay_profile,
+            decay_profile_version=decay_profile_version,
+            initial_authority_digest=compiled_ceiling.compiled_digest,
             operation=request.operation,
             resource_id=request.resource_id,
             arguments_digest=arguments_digest,
@@ -278,21 +424,25 @@ class CapabilityBroker:
         request: ActionRequest,
         *,
         executor_measurement: str,
-        device_id: str | None = None,
-        attestation_digest: str | None = None,
-        attestation_bundle_digest: str | None = None,
-        verifier_policy_digest: str | None = None,
-        policy_digest: str | None = None,
+        device_id: str,
+        attestation: Mapping[str, Any],
+        verifier_policy_digest: str,
+        policy_digest: str,
+        audience: str = "effect-executor",
+        tenant: str = "default",
+        environment: str = "synthetic",
         now: float | None = None,
     ) -> CapabilityClaims:
         claims = _verified_claims(
             self._public_key, self.key_id, capability, request,
             executor_measurement=executor_measurement,
             device_id=device_id,
-            attestation_digest=attestation_digest,
-            attestation_bundle_digest=attestation_bundle_digest,
+            attestation=attestation,
             verifier_policy_digest=verifier_policy_digest,
             policy_digest=policy_digest,
+            audience=audience,
+            tenant=tenant,
+            environment=environment,
             now=now,
         )
         _consume_once(self.consumption_store, claims, now)

@@ -17,8 +17,8 @@ VECTOR_FIELDS = {
     "context", "verification_time", "preconsume", "expected",
 }
 CONTEXT_FIELDS = {
-    "device_id", "executor_measurement", "attestation_digest",
-    "attestation_bundle_digest", "verifier_policy_digest", "policy_digest",
+    "device_id", "executor_measurement", "attestation",
+    "verifier_policy_digest", "policy_digest", "tenant", "environment",
 }
 
 

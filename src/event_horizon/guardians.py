@@ -15,6 +15,7 @@ from .component_ids import (
 )
 from .models import ActionRequest, GuardianDecision
 from .policy import StaticPolicy
+from .task_policy import ProviderTrustState
 
 
 class Guardian(Protocol):
@@ -64,6 +65,15 @@ class AttestationGuardian:
         }
         if evidence["nonceContext"] != expected_nonce_context:
             return GuardianDecision(self.name, False, "verified nonce context does not match request", request_digest=request.request_digest)
+        try:
+            trust_state = ProviderTrustState.from_attestation(evidence)
+        except ValueError as exc:
+            return GuardianDecision(
+                self.name,
+                False,
+                f"provider trust state is invalid: {exc}",
+                request_digest=request.request_digest,
+            )
         return GuardianDecision(
             self.name,
             True,
@@ -81,6 +91,8 @@ class AttestationGuardian:
                 "nonce_context": evidence.get("nonceContext"),
                 "nonce_issued_at": evidence.get("nonceIssuedAt"),
                 "nonce_expires_at": evidence.get("nonceExpiresAt"),
+                "provider_trust_state": trust_state.to_dict(),
+                "attestation_result": dict(evidence),
             },
             request.request_digest,
         )

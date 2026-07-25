@@ -8,6 +8,12 @@ hostile request
       v
 Intent Canonicalizer ----> Executor Attestation verifier
       |                              |
+      +--> Task Policy Synthesizer   |
+      |             |                |
+      |      untrusted candidate     |
+      |             v                |
+      +--> deterministic compiler <--+
+      |             |
       +--------> guardian quorum <---+
                          |
               authenticated request
@@ -32,14 +38,15 @@ Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes 
 
 1. The Intent Canonicalizer parses and canonicalizes a typed request. It has no tool registry, signing key, network client, or execution authority.
 2. Executor Attestation verifies a verifier-issued one-time nonce, registered device/AK identity, signed measurement evidence, freshness, PCR selection, and policy. It returns evidence, never authorization.
-3. The Static Policy Guardian, Executor Attestation Guardian, Lineage Budget Guardian, and Behavioral Transition Guardian each evaluate the same request. One permissive guardian cannot override another veto or widen static policy.
-4. The broker presents a fresh authenticated request to the isolated signer, which independently revalidates the guardian aggregate and attestation binding before minting a short-lived capability for the exact canonical request digest.
-5. The authority-side broker atomically burns each capability before dispatch. The executor receives the public verification key, expected bindings, and a separate defense-in-depth replay database—never the signing key or authoritative replay database—and rechecks every binding before one pre-registered operation.
-6. The independent logical evidence recorder returns a signed receipt for every fixed-size event envelope. Evidence Chain Verification signs a certificate only after recorder verification and verified teardown.
+3. The Task Policy Synthesizer proposes a task-specific ceiling. The deterministic compiler rejects unknown authority and intersects the candidate with static policy, provider trust, tenant/environment policy, approvals, and guardian reductions. The synthesizer cannot sign or mint authority.
+4. The Static Policy Guardian, Executor Attestation Guardian, Lineage Budget Guardian, and Behavioral Transition Guardian each evaluate the same request. One permissive guardian cannot override another veto or widen static policy.
+5. The broker presents a fresh authenticated request to the isolated signer, which independently revalidates the guardian aggregate and attestation binding before minting a short-lived capability for the exact canonical request digest and compiled ceiling.
+6. The authority-side broker atomically burns each capability before dispatch. The executor receives the public verification key, expected bindings, and a separate defense-in-depth replay database—never the signing key or authoritative replay database—and rechecks every binding before one pre-registered operation.
+7. The independent logical evidence recorder returns a signed receipt for every fixed-size event envelope. Evidence Chain Verification signs a certificate only after recorder verification and verified teardown.
 
 ## Capability bindings
 
-The capability commits to request ID and digest, session and agent, operation/resource/arguments, executor and device ID, image/measurement digest, Executor Attestation bundle and result digests, verifier-policy digest, static-policy digest, signer key ID, expiry, one-use invocation count, and maximum output bytes.
+The capability commits to request ID and digest, session and subject, operation/resource/arguments, workload and device identity, image/measurement digest, task ID and fingerprint, tenant/environment/audience, requested/provider/effective/signed trust, Executor Attestation method/key/bundle/result digests, verifier-policy digest, static-policy digest, the complete compiled ceiling and digest, guardian state, decay profile/version, signer key ID, expiry, one-use invocation count, and maximum output bytes.
 
 Guardian combination is unanimity with mandatory identities, not majority voting. Response schemas, guardian identity, request digest, and policy version are checked independently of response order. Any missing, duplicate, stale, malformed, timed-out, crashed, or inconsistent response is a veto. See [GUARDIAN_QUORUM.md](GUARDIAN_QUORUM.md).
 

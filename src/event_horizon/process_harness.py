@@ -324,6 +324,7 @@ class ProcessSeparatedHarness:
                     'replay_database': str(self.authority_replay_path),
                     'replay_namespace': replay_namespace,
                     'consumption_domain': 'broker',
+                    'policy': policy,
                     **protected_config('signer', self.authority_replay_path),
                 },
             )
