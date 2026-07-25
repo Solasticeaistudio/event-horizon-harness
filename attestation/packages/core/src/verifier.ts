@@ -152,10 +152,10 @@ export class Verifier {
     this.providerVerifiers.set(providerVerifier.method, providerVerifier);
   }
 
-  verify(
+  async verify(
     bundle: AttestationBundle,
     options: { nonce: string; context: NonceContext; publicKeyPem?: string },
-  ): VerificationResult {
+  ): Promise<VerificationResult> {
     const at = this.config.now?.() ?? new Date();
     if (!isBundleShape(bundle)) {
       return failure('MALFORMED_BUNDLE', 'bundle fields or types are invalid', at);
@@ -231,7 +231,7 @@ export class Verifier {
     }
     let nonceTransition;
     try {
-      nonceTransition = this.nonceAuthority.consume(options.nonce, options.context);
+      nonceTransition = await this.nonceAuthority.consume(options.nonce, options.context);
     } catch {
       return failure('VERIFIER_UNAVAILABLE', 'nonce persistence failed closed', at);
     }

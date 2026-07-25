@@ -17,6 +17,7 @@ Release title: **Event Horizon v0.4.0 — Executor Attestation and Public-Artifa
 - [x] Provider-specific attestation verification derives trust from verifier output, not a bundle string.
 - [x] Unknown/missing/malformed providers and invalid TPM evidence fail closed.
 - [x] Every accepted attestation nonce is authority-issued, context-bound, durable, and atomically one-use across cooperating local verifier processes.
+- [x] The authenticated remote replay interface passes signed Python/Node interoperability, concurrency, rollback, stale-primary, forgery, and outage conformance tests; documentation does not misrepresent its single-writer reference service as consensus.
 - [x] Development attestation creates a fresh proof for every session and has no success cache.
 - [x] Capability schemas, canonicalization, exact bindings, Ed25519 signatures, expiration, and durable cross-process replay checks pass.
 - [x] Signer, recorder, and certificate mutations require audience-bound Ed25519 client authorization with durable one-use nonces.

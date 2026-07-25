@@ -12,7 +12,7 @@ try {
     now: () => new Date(input.now),
     noncePersistence: persistence,
   });
-  const result = verifier.verify(input.bundle, {
+  const result = await verifier.verify(input.bundle, {
     nonce: input.nonce,
     context: input.context,
   });

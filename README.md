@@ -11,7 +11,7 @@ The tested claim is narrower than general containment: compromise inside the hos
 - Strict canonical requests cross explicit process boundaries with bounded schemas and duplicate-key rejection.
 - Executor Attestation issues a fresh, context-bound nonce and dispatches verification by signed-bundle method. The default public demo uses a simulator and labels it development-only.
 - An Ed25519 capability binds the exact request, arguments, session, executor, device, measurement, attestation, verifier policy, static policy, expiry, output limit, and one-use identifier.
-- The signer and executor independently reconstruct request and argument digests. SQLite-backed replay state makes nonce and capability consumption durable and atomic across cooperating processes on one host.
+- The signer and executor independently reconstruct request and argument digests. SQLite-backed replay state makes nonce and capability consumption durable and atomic across cooperating processes on one host. A signed cross-language interface defines the same transitions for a separately deployed replay authority.
 - Capability issuance/consumption, evidence append, and certificate construction require fresh Ed25519 client authorization. Service signing seeds are restricted file-backed fixtures, not inline JSON values.
 - Four required guardians form a unanimity veto. Missing, malformed, stale, inconsistent, crashed, or timed-out decisions deny execution.
 - An independent logical evidence recorder hash-chains events and signs receipts. A detached Ed25519 containment certificate covers the recorded evidence domains and verified teardown.
@@ -19,7 +19,7 @@ The tested claim is narrower than general containment: compromise inside the hos
 
 ## What it does not demonstrate
 
-This repository does not demonstrate containment of a frontier model, production Firecracker isolation, production TPM enrollment or hardware provenance, resistance to host-kernel compromise, separately administered or hardware-backed signing, physically one-way evidence storage, multi-host replay-state atomicity, or an independent security audit. The scripted adversary uses harmless synthetic actions; it is not a real offensive campaign result.
+This repository does not demonstrate containment of a frontier model, production Firecracker isolation, production TPM enrollment or hardware provenance, resistance to host-kernel compromise, separately administered or hardware-backed signing, physically one-way evidence storage, a deployed multi-host replay backend, or an independent security audit. The scripted adversary uses harmless synthetic actions; it is not a real offensive campaign result.
 
 See [Known limitations](KNOWN_LIMITATIONS.md) for the complete claim boundary.
 
@@ -65,7 +65,7 @@ requests, decisions, capabilities and results
     -> Signed Containment Certificate
 ```
 
-Physical separation of the evidence plane is future work. Implementation details are in [Architecture](docs/ARCHITECTURE.md), [Protected signing and evidence boundaries](docs/PROTECTED_BOUNDARIES.md), [Guardian quorum semantics](docs/GUARDIAN_QUORUM.md), [Executor Attestation architecture](docs/ATTESTATION_ARCHITECTURE.md), and [Durable replay state](docs/REPLAY_STATE.md).
+Physical separation of the evidence plane is future work. Implementation details are in [Architecture](docs/ARCHITECTURE.md), [Protected signing and evidence boundaries](docs/PROTECTED_BOUNDARIES.md), [Guardian quorum semantics](docs/GUARDIAN_QUORUM.md), [Executor Attestation architecture](docs/ATTESTATION_ARCHITECTURE.md), [Durable replay state](docs/REPLAY_STATE.md), and the [authenticated remote replay protocol](docs/REMOTE_REPLAY_PROTOCOL.md).
 
 ## Quick start
 
@@ -111,6 +111,7 @@ The deterministic normalized fixture is under [examples/reference-run](examples/
 npm ci
 npm run build
 npm test
+python scripts/verify_remote_replay_interop.py
 python scripts/verify_capability_vectors.py
 python scripts/verify_certificate.py .demo/latest-containment-certificate.json
 python scripts/check_repository_policy.py
@@ -139,14 +140,14 @@ Report plausible containment bypasses privately before publishing details.
 
 ## Current limitations
 
-The default execution path is process separation, not a production microVM. TPM fixtures and `swtpm` do not establish hardware provenance. Signing and evidence mutations are authenticated, but their development keys, services, and storage remain under one host account. SQLite replay atomicity is limited to one host and one local database; database rollback or compromise remains in the trusted computing base. Tests are project-authored and automated, and no external audit has occurred.
+The default execution path is process separation, not a production microVM. TPM fixtures and `swtpm` do not establish hardware provenance. Signing and evidence mutations are authenticated, but their development keys, services, and storage remain under one host account. The remote replay protocol has authenticated Python and TypeScript clients, signed checkpoints, explicit epochs, and a single-writer reference service; no consensus-backed multi-host deployment or old-leader fencing is included. Tests are project-authored and automated, and no external audit has occurred.
 
 These are active limitations, not deployment footnotes. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Roadmap
 
 1. Deploy the authenticated signing/evidence interfaces under separate principals with externally provisioned protected keys and storage.
-2. Add a linearizable multi-host replay backend with authenticated clients and rollback defenses.
+2. Deploy the authenticated replay interface on a consensus-backed multi-host state machine with old-leader fencing, protected client checkpoints, and independent monitoring.
 3. Complete production TPM enrollment, endorsement validation, quote generation, and measurement policy.
 4. Run the executor in a reproducibly built Firecracker image with enforced host controls and teardown.
 5. Commission independent parser, capability, attestation, evidence, and containment review.

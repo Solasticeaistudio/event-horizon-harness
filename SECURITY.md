@@ -16,6 +16,7 @@ A valid report demonstrates or plausibly identifies a failure of a documented se
 - capability, recorder, certificate, or protected-client private material exposed through executor configuration or ordinary service metadata;
 - accepted attestation without an issued one-use nonce or verified provider result;
 - replay accepted after an ordinary verifier, signer, or executor process restart when the configured durable state remains intact;
+- a forged client request, forged/swapped server response, stale service epoch, or checkpoint rollback accepted by the authenticated remote replay interface;
 - a way for the hostile executor to read, mutate, delete, or roll back authoritative nonce or broker replay state in the documented topology;
 - simulator evidence accepted as hardware trust;
 - static-policy or required-guardian failure that permits execution;

@@ -50,19 +50,24 @@
 - Added a harmless five-step scripted adversary with no URLs, IP addresses, public-network destinations, raw commands, credentials with authority, or real infrastructure connectors.
 - Added a strict paired experiment format for `baseline` and `event-horizon` modes with deterministic scripted data and explicit unmeasured fields.
 - Added an implementation-level design defense covering the authority ceiling, signed bindings, replay controls, attestation trust, TCB attacks, parser disagreement, evidence, and deployment gaps.
+- Added a strict signed cross-language replay protocol with per-client operation/partition policy, freshness, exact request/response binding, pinned server keys, explicit epochs, and monotonic hash-chain checkpoints.
+- Added a single-writer Python reference replay service with an HTTP binding plus remote capability-consumption and protected-request-authorization adapters.
+- Made the Executor Attestation nonce persistence boundary, nonce authority, verifier, SDK, service, bridge, and tests awaitable; added a fail-closed TypeScript remote nonce adapter and HTTP client.
+- Added 48-way remote redemption contention, client-policy isolation, collision, nonce-context, request forgery, unknown-field, response forgery/swapping, rollback, fork-ahead, failover with key rotation, stale-primary, unsafe-promotion, outage, and HTTP conformance tests.
+- Added a live Python-service/Node-client interoperability check covering canonical JSON, Ed25519 key IDs and signatures, nonce transitions, response binding, and checkpoints.
 
 ## Tests executed
 
 - `npm ci`: passed with 0 reported dependency vulnerabilities.
 - `npm run build`: passed for all eight TypeScript workspaces.
-- `npm test`: 46 TypeScript tests passed, one opt-in real Linux TPM test skipped, and 83 Python tests passed.
-- `python -m unittest discover -s tests -v`: 83 passed.
+- `npm test`: 49 TypeScript tests passed, one opt-in real Linux TPM test skipped, the Python-service/Node-client replay interoperability check passed, and 97 Python tests passed.
+- `python -m unittest discover -s tests -v`: 97 passed.
 - `scripts/demo.ps1`: passed with the documented success, denial, detection, and certificate summary.
 - GNU Make was not installed on the Windows release host; the documented PowerShell-equivalent demo command passed.
 - Live certificate verification: passed with Ed25519 key-identity validation.
 - Fixed capability vectors: 8 of 8 passed.
-- Python lint: passed for 49 Python files after staging the new sources.
-- Repository policy: passed for all 167 tracked paths after staging the new sources.
+- Python lint: passed for all 52 tracked Python files.
+- Repository policy: passed for all 174 tracked paths after staging the new sources.
 - Temporary clean-clone install, build, tests, demo, vectors, fixture certificate, and policy audit: passed.
 
 ## Known failures
@@ -73,7 +78,7 @@
 
 ## Security limitations
 
-- SQLite nonce and capability consumption is durable and atomic across cooperating processes using one local database on one host. It is not a multi-host, network-filesystem, or Byzantine-client guarantee.
+- SQLite nonce and capability consumption is durable and atomic across cooperating processes using one local database on one host. The authenticated remote interface defines linearizable transitions and detects rollback relative to client-retained signed checkpoints, but its reference service is single-writer: no consensus, old-leader fencing, rollback-resistant client storage, or deployed multi-host guarantee is claimed.
 - The execution cell is not a production Firecracker deployment.
 - The simulator is development-only and is not hardware attestation.
 - The authoritative replay database, WAL, containing directory, configuration, backups, and rollback protection remain trusted. Deletion or restoration of old state can erase consumption history, and records are not yet compacted. The portable same-user process fallback does not enforce filesystem isolation between executor and authority paths.
@@ -105,6 +110,9 @@
 - Bounded synthetic adversarial-runner interface, manifest schema, safe adapter, public example, documentation, and regression tests
 - Paired experiment validator, JSON schema, explicitly scripted reference comparison, documentation, and tests
 - `docs/DESIGN_DEFENSE.md`
+- `src/event_horizon/remote_replay.py`, Python replay conformance tests, and Python remote adapters
+- Awaitable Executor Attestation nonce/verifier APIs and `RemoteNoncePersistence`
+- `docs/REMOTE_REPLAY_PROTOCOL.md` and cross-language replay verification scripts
 - `RELEASE_CHECKLIST.md` and `docs/releases/v0.4.0.md`
 - `STATUS.md`
 
@@ -118,7 +126,7 @@ python scripts/verify_certificate.py .demo/latest-containment-certificate.json
 
 ## Next engineering milestone
 
-Add a linearizable multi-host replay service interface with authenticated clients, rollback defenses, failover semantics, and conformance tests. Actual external deployment and separate administration require infrastructure outside this repository.
+Deploy the authenticated replay interface on a consensus-backed replicated state machine with old-leader fencing, rollback-resistant client checkpoint storage, separately administered keys, TLS, monitoring, and backup/restore drills.
 
 ## Exact next command
 

@@ -34,6 +34,8 @@ export interface NonceTransitionResult {
   record?: Readonly<NonceRecord>;
 }
 
+export type Awaitable<T> = T | Promise<T>;
+
 /**
  * Persistence boundary for one atomic compare-and-transition operation.
  *
@@ -42,9 +44,13 @@ export interface NonceTransitionResult {
  * property with one server-side transaction; check-then-delete is unsafe.
  */
 export interface NoncePersistence {
-  createIssued(record: Readonly<NonceRecord>): boolean;
-  transitionToConsumed(nonce: string, contextDigest: string, now: number): NonceTransitionResult;
-  inspect(nonce: string, now: number): Readonly<NonceRecord> | undefined;
+  createIssued(record: Readonly<NonceRecord>): Awaitable<boolean>;
+  transitionToConsumed(
+    nonce: string,
+    contextDigest: string,
+    now: number,
+  ): Awaitable<NonceTransitionResult>;
+  inspect(nonce: string, now: number): Awaitable<Readonly<NonceRecord> | undefined>;
 }
 
 function cloneRecord(record: Readonly<NonceRecord>): NonceRecord {
@@ -120,7 +126,7 @@ export class NonceAuthority {
     }
   }
 
-  issue(context: NonceContext): string {
+  async issue(context: NonceContext): Promise<string> {
     const validatedContext = validateContext(context);
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const nonce = randomBytes(32).toString('base64url');
@@ -133,12 +139,12 @@ export class NonceAuthority {
         expiresAt: issuedAt + this.ttlSeconds * 1000,
         state: 'issued',
       };
-      if (this.persistence.createIssued(record)) return nonce;
+      if (await this.persistence.createIssued(record)) return nonce;
     }
     throw new Error('nonce generation collision limit exceeded');
   }
 
-  register(nonce: string, context: NonceContext, issuedAt: number, expiresAt: number): void {
+  async register(nonce: string, context: NonceContext, issuedAt: number, expiresAt: number): Promise<void> {
     const validatedContext = validateContext(context);
     if (!isCanonicalNonce(nonce)) throw new TypeError('registered nonce is malformed');
     if (
@@ -150,7 +156,7 @@ export class NonceAuthority {
     ) {
       throw new TypeError('registered nonce timestamps are invalid');
     }
-    const created = this.persistence.createIssued({
+    const created = await this.persistence.createIssued({
       nonce,
       context: validatedContext,
       contextDigest: sha256(canonicalBytes(validatedContext)),
@@ -161,7 +167,7 @@ export class NonceAuthority {
     if (!created) throw new Error('nonce is already registered');
   }
 
-  consume(nonce: string, context: NonceContext): NonceTransitionResult {
+  async consume(nonce: string, context: NonceContext): Promise<NonceTransitionResult> {
     if (!isCanonicalNonce(nonce)) return { accepted: false, status: 'malformed' };
     let validatedContext: NonceContext;
     try {
@@ -169,15 +175,15 @@ export class NonceAuthority {
     } catch {
       return { accepted: false, status: 'malformed' };
     }
-    return this.persistence.transitionToConsumed(
+    return await this.persistence.transitionToConsumed(
       nonce,
       sha256(canonicalBytes(validatedContext)),
       this.now(),
     );
   }
 
-  inspect(nonce: string): Readonly<NonceRecord> | undefined {
+  async inspect(nonce: string): Promise<Readonly<NonceRecord> | undefined> {
     if (!isCanonicalNonce(nonce)) return undefined;
-    return this.persistence.inspect(nonce, this.now());
+    return await this.persistence.inspect(nonce, this.now());
   }
 }

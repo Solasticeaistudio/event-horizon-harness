@@ -36,78 +36,78 @@ function fixture(options = {}) {
   };
 }
 
-test('valid TPM quote fixture verifies as hardware rooted', () => {
+test('valid TPM quote fixture verifies as hardware rooted', async () => {
   const value = fixture();
-  const nonce = value.issue();
-  const result = value.verifier.verify(value.bundle(nonce), { nonce, context: value.context });
+  const nonce = await value.issue();
+  const result = await value.verifier.verify(value.bundle(nonce), { nonce, context: value.context });
   assert.equal(result.valid, true);
   assert.equal(result.valid && result.trustLevel, 'hardware');
   assert.equal(result.valid && result.assuranceLevel, 'hardware-rooted');
   assert.equal(result.valid && result.measurements['sha256:7']?.length, 64);
 });
 
-test('tampered PCR values are rejected against the signed composite', () => {
+test('tampered PCR values are rejected against the signed composite', async () => {
   const value = fixture();
-  const nonce = value.issue();
+  const nonce = await value.issue();
   const bundle = value.bundle(nonce);
   bundle.evidence.pcrValues['sha256:0'] = '00'.repeat(32);
-  const result = value.verifier.verify(bundle, { nonce, context: value.context });
+  const result = await value.verifier.verify(bundle, { nonce, context: value.context });
   assert.equal(result.valid, false);
   assert.equal(!result.valid && result.failureCode, 'TPM_PCR_DIGEST');
 });
 
-test('stale TPM proof timestamps fail before authorization', () => {
+test('stale TPM proof timestamps fail before authorization', async () => {
   const value = fixture();
-  const nonce = value.issue();
+  const nonce = await value.issue();
   const issuedAt = new Date('2025-12-31T23:58:00.000Z');
   const bundle = value.bundle(nonce, { issuedAt, ttlSeconds: 300 });
-  const result = value.verifier.verify(bundle, { nonce, context: value.context });
+  const result = await value.verifier.verify(bundle, { nonce, context: value.context });
   assert.equal(result.valid, false);
   assert.equal(!result.valid && result.failureCode, 'PROOF_TOO_OLD');
 });
 
-test('accepted TPM proof cannot be replayed', () => {
+test('accepted TPM proof cannot be replayed', async () => {
   const value = fixture();
-  const nonce = value.issue();
+  const nonce = await value.issue();
   const bundle = value.bundle(nonce);
-  assert.equal(value.verifier.verify(bundle, { nonce, context: value.context }).valid, true);
-  const replay = value.verifier.verify(bundle, { nonce, context: value.context });
+  assert.equal((await value.verifier.verify(bundle, { nonce, context: value.context })).valid, true);
+  const replay = await value.verifier.verify(bundle, { nonce, context: value.context });
   assert.equal(replay.valid, false);
   assert.equal(!replay.valid && replay.failureCode, 'PROOF_REPLAY');
 });
 
-test('quote from the wrong AK is rejected', () => {
+test('quote from the wrong AK is rejected', async () => {
   const registered = createTpmIdentity();
   const attacker = createTpmIdentity();
   const value = fixture({ identity: registered });
-  const nonce = value.issue();
+  const nonce = await value.issue();
   const bundle = createTpmBundle(attacker, { nonce, deviceId: value.deviceId, issuedAt: new Date('2026-01-01T00:00:00.000Z') });
   bundle.keyId = registered.keyId;
-  const result = value.verifier.verify(bundle, { nonce, context: value.context });
+  const result = await value.verifier.verify(bundle, { nonce, context: value.context });
   assert.equal(result.valid, false);
   assert.equal(!result.valid && result.failureCode, 'TPM_AK_MISMATCH');
 });
 
-test('signed wrong PCR selection is rejected by verifier policy', () => {
+test('signed wrong PCR selection is rejected by verifier policy', async () => {
   const value = fixture();
-  const nonce = value.issue();
-  const result = value.verifier.verify(value.bundle(nonce, { pcrSelection: [0, 8] }), { nonce, context: value.context });
+  const nonce = await value.issue();
+  const result = await value.verifier.verify(value.bundle(nonce, { pcrSelection: [0, 8] }), { nonce, context: value.context });
   assert.equal(result.valid, false);
   assert.equal(!result.valid && result.failureCode, 'TPM_PCR_SELECTION');
 });
 
-test('tampered or missing required event log is rejected', () => {
+test('tampered or missing required event log is rejected', async () => {
   const tamperedValue = fixture();
-  const tamperedNonce = tamperedValue.issue();
+  const tamperedNonce = await tamperedValue.issue();
   const tampered = tamperedValue.bundle(tamperedNonce);
   tampered.evidence.eventLog[0].digest = '11'.repeat(32);
-  const tamperedResult = tamperedValue.verifier.verify(tampered, { nonce: tamperedNonce, context: tamperedValue.context });
+  const tamperedResult = await tamperedValue.verifier.verify(tampered, { nonce: tamperedNonce, context: tamperedValue.context });
   assert.equal(tamperedResult.valid, false);
   assert.equal(!tamperedResult.valid && tamperedResult.failureCode, 'TPM_EVENT_LOG');
 
   const missingValue = fixture();
-  const missingNonce = missingValue.issue();
-  const missing = missingValue.verifier.verify(
+  const missingNonce = await missingValue.issue();
+  const missing = await missingValue.verifier.verify(
     missingValue.bundle(missingNonce, { includeEventLog: false }),
     { nonce: missingNonce, context: missingValue.context },
   );
@@ -115,10 +115,10 @@ test('tampered or missing required event log is rejected', () => {
   assert.equal(!missing.valid && missing.failureCode, 'TPM_EVENT_LOG');
 });
 
-test('unknown and expired verifier nonces are rejected', () => {
+test('unknown and expired verifier nonces are rejected', async () => {
   const unknownValue = fixture();
   const unknownNonce = randomBytes(32).toString('base64url');
-  const unknown = unknownValue.verifier.verify(
+  const unknown = await unknownValue.verifier.verify(
     unknownValue.bundle(unknownNonce),
     { nonce: unknownNonce, context: unknownValue.context },
   );
@@ -126,10 +126,10 @@ test('unknown and expired verifier nonces are rejected', () => {
   assert.equal(!unknown.valid && unknown.failureCode, 'NONCE_UNKNOWN');
 
   const expiredValue = fixture({ nonceTtlSeconds: 1 });
-  const expiredNonce = expiredValue.issue();
+  const expiredNonce = await expiredValue.issue();
   const expiredBundle = expiredValue.bundle(expiredNonce);
   expiredValue.advance(2_000);
-  const expired = expiredValue.verifier.verify(
+  const expired = await expiredValue.verifier.verify(
     expiredBundle,
     { nonce: expiredNonce, context: expiredValue.context },
   );
@@ -165,8 +165,8 @@ test('real Linux TPM quote integration', { skip: process.env.EH_ATTESTATION_REAL
     requireTpmEventLog: Boolean(process.env.EH_ATTESTATION_TPM_EVENT_LOG_JSON),
   });
   const context = nonceContext(deviceId, { sessionId: 'real-tpm-test-session' });
-  const nonce = verifier.nonceAuthority.issue(context);
+  const nonce = await verifier.nonceAuthority.issue(context);
   const prover = new TpmProver({ deviceId, pcrSelection: [0, 7], provider });
-  const result = verifier.verify(await prover.prove({ nonce }), { nonce, context });
+  const result = await verifier.verify(await prover.prove({ nonce }), { nonce, context });
   assert.equal(result.valid, true, JSON.stringify(result));
 });

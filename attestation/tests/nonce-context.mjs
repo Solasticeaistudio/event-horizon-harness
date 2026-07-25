@@ -8,7 +8,7 @@ export function nonceContext(deviceId, overrides = {}) {
   };
 }
 
-export function issueChallenge(verifier, deviceId, overrides = {}) {
+export async function issueChallenge(verifier, deviceId, overrides = {}) {
   const context = nonceContext(deviceId, overrides);
-  return { context, nonce: verifier.nonceAuthority.issue(context) };
+  return { context, nonce: await verifier.nonceAuthority.issue(context) };
 }

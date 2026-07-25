@@ -14,12 +14,16 @@ function json(response: ServerResponse, status: number, body: unknown): void {
   response.end(data);
 }
 
-function readJson(request: IncomingMessage, response: ServerResponse, handle: (body: unknown) => void): void {
+function readJson(
+  request: IncomingMessage,
+  response: ServerResponse,
+  handle: (body: unknown) => void | Promise<void>,
+): void {
   const chunks: Buffer[] = [];
   request.on('data', chunk => chunks.push(Buffer.from(chunk)));
-  request.on('end', () => {
+  request.on('end', async () => {
     try {
-      handle(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
+      await handle(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
     } catch (error) {
       json(response, 400, { error: error instanceof Error ? error.message : String(error) });
     }
@@ -31,21 +35,21 @@ createServer((request, response) => {
     return json(response, 200, { ok: true, mode: 'in-memory-development' });
   }
   if (request.method === 'POST' && request.url === '/v1/nonce') {
-    readJson(request, response, (value) => {
+    readJson(request, response, async (value) => {
       const body = value as { context: NonceContext };
-      json(response, 200, { nonce: verifier.nonceAuthority.issue(body.context) });
+      json(response, 200, { nonce: await verifier.nonceAuthority.issue(body.context) });
     });
     return;
   }
   if (request.method === 'POST' && request.url === '/v1/verify') {
-    readJson(request, response, (value) => {
+    readJson(request, response, async (value) => {
       const body = value as {
         bundle: AttestationBundle;
         nonce: string;
         context: NonceContext;
         publicKeyPem?: string;
       };
-      const result = verifier.verify(body.bundle, {
+      const result = await verifier.verify(body.bundle, {
         nonce: body.nonce,
         context: body.context,
         publicKeyPem: body.publicKeyPem,

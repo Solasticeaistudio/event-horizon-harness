@@ -26,9 +26,9 @@ const verifier = new Verifier({
   noncePersistence,
 });
 const context = { deviceId, executorId: deviceId, sessionId, purpose };
-const nonce = verifier.nonceAuthority.issue(context);
+const nonce = await verifier.nonceAuthority.issue(context);
 const bundle = await prover.prove({ nonce });
-const result = verifier.verify(bundle, { nonce, context });
+const result = await verifier.verify(bundle, { nonce, context });
 console.log(JSON.stringify(result));
 noncePersistence?.close();
 if (!result.valid) process.exitCode = 1;

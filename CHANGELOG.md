@@ -2,6 +2,18 @@
 
 All notable public-artifact changes are recorded here. The project follows semantic versioning for artifact releases; research claims remain limited to documented tests and topology.
 
+## [Unreleased]
+
+### Added
+
+- A signed cross-language replay state-machine protocol with authorized operation/partition policies, pinned service epochs, monotonic hash-chain checkpoints, explicit failover adoption, and fail-closed HTTP clients.
+- A single-writer Python reference service plus Python capability/protected-request adapters and an awaitable TypeScript Executor Attestation nonce adapter.
+- Conformance coverage for concurrency, collisions, request and response forgery, response swapping, rollback, stale primaries, unsafe promotion, outages, and real Python-service/Node-client interoperability.
+
+### Changed
+
+- Made Executor Attestation nonce persistence, nonce authority operations, and verification awaitable so remote atomic transitions do not require blocking network I/O.
+
 ## [0.4.0] - 2026-07-24
 
 ### Added

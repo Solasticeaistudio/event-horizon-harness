@@ -57,7 +57,7 @@ export class Server extends Emitter<ServerEvents> {
   ): Promise<VerificationResult> {
     this.emit('verify.started', { deviceId: bundle.deviceId });
     if (!this.verifier) throw new AttestationError('NOT_IMPLEMENTED', 'remote verification is not implemented');
-    const result = this.verifier.verify(bundle, options);
+    const result = await this.verifier.verify(bundle, options);
     if (result.valid) {
       this.emit('verify.success', { deviceId: result.deviceId, trustLevel: result.trustLevel });
       this.emit('device.verified', { deviceId: result.deviceId, trustLevel: result.trustLevel });
@@ -70,7 +70,7 @@ export class Server extends Emitter<ServerEvents> {
   readonly nonce = {
     issue: async (context: NonceContext): Promise<string> => {
       if (!this.verifier) throw new AttestationError('NOT_IMPLEMENTED', 'remote nonce issuance is not implemented');
-      const nonce = this.verifier.nonceAuthority.issue(context);
+      const nonce = await this.verifier.nonceAuthority.issue(context);
       this.emit('nonce.issued', { nonce, context });
       return nonce;
     },

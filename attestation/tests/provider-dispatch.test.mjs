@@ -23,8 +23,8 @@ function failureCode(result) {
 
 test('valid simulator attestation derives development trust from simulator verifier', async () => {
   const { deviceId, prover, verifier } = simulatorFixture();
-  const { nonce, context } = issueChallenge(verifier, deviceId);
-  const result = verifier.verify(await prover.prove({ nonce }), { nonce, context });
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
+  const result = await verifier.verify(await prover.prove({ nonce }), { nonce, context });
   assert.equal(result.valid, true);
   assert.equal(result.valid && result.trustLevel, 'simulated');
   assert.equal(result.valid && result.assuranceLevel, 'development');
@@ -32,27 +32,27 @@ test('valid simulator attestation derives development trust from simulator verif
 
 test('signed simulator bundle claiming tpm2 cannot acquire hardware trust', async () => {
   const { deviceId, prover, verifier } = simulatorFixture({ minTrustLevel: 'hardware' });
-  const { nonce, context } = issueChallenge(verifier, deviceId);
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
   const bundle = await prover.prove({ nonce });
   bundle.method = 'tpm2';
-  const result = verifier.verify(bundle, { nonce, context });
+  const result = await verifier.verify(bundle, { nonce, context });
   assert.equal(failureCode(result), 'KEY_ID_MISMATCH');
   assert.equal('trustLevel' in result, false);
 });
 
 test('unknown attestation method is rejected before provider dispatch', async () => {
   const { deviceId, prover, verifier } = simulatorFixture();
-  const { nonce, context } = issueChallenge(verifier, deviceId);
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
   const bundle = await prover.prove({ nonce });
   bundle.method = 'unknown-provider';
-  assert.equal(failureCode(verifier.verify(bundle, { nonce, context })), 'UNSUPPORTED_METHOD');
+  assert.equal(failureCode(await verifier.verify(bundle, { nonce, context })), 'UNSUPPORTED_METHOD');
 });
 
 test('known method with no registered verifier fails closed', async () => {
   const { deviceId, prover, verifier } = simulatorFixture({ useDefaultProviderVerifiers: false });
-  const { nonce, context } = issueChallenge(verifier, deviceId);
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
   const bundle = await prover.prove({ nonce });
-  assert.equal(failureCode(verifier.verify(bundle, { nonce, context })), 'VERIFIER_UNAVAILABLE');
+  assert.equal(failureCode(await verifier.verify(bundle, { nonce, context })), 'VERIFIER_UNAVAILABLE');
 });
 
 test('provider exception fails closed without trust output', async () => {
@@ -64,13 +64,13 @@ test('provider exception fails closed without trust output', async () => {
     useDefaultProviderVerifiers: false,
     providerVerifiers: [throwingProvider],
   });
-  const { nonce, context } = issueChallenge(verifier, deviceId);
-  const result = verifier.verify(await prover.prove({ nonce }), { nonce, context });
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
+  const result = await verifier.verify(await prover.prove({ nonce }), { nonce, context });
   assert.equal(failureCode(result), 'PROVIDER_ERROR');
   assert.equal('trustLevel' in result, false);
 });
 
-test('invalid TPM quote fails before hardware trust is returned', () => {
+test('invalid TPM quote fails before hardware trust is returned', async () => {
   const identity = createTpmIdentity();
   const deviceId = 'invalid-quote-device';
   const now = new Date('2026-01-01T00:00:00.000Z');
@@ -82,37 +82,37 @@ test('invalid TPM quote fails before hardware trust is returned', () => {
     tpmPcrSelections: { [deviceId]: ['sha256:0', 'sha256:7'] },
     requireTpmEventLog: true,
   });
-  const { nonce, context } = issueChallenge(verifier, deviceId);
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
   const bundle = createTpmBundle(identity, { nonce, deviceId, issuedAt: now });
   bundle.evidence.quote = 'AA';
-  const result = verifier.verify(bundle, { nonce, context });
+  const result = await verifier.verify(bundle, { nonce, context });
   assert.equal(failureCode(result), 'TPM_QUOTE_MALFORMED');
   assert.equal('trustLevel' in result, false);
 });
 
 test('simulator attestation cannot satisfy hardware-only policy', async () => {
   const { deviceId, prover, verifier } = simulatorFixture({ minTrustLevel: 'hardware' });
-  const { nonce, context } = issueChallenge(verifier, deviceId);
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
   assert.equal(
-    failureCode(verifier.verify(await prover.prove({ nonce }), { nonce, context })),
+    failureCode(await verifier.verify(await prover.prove({ nonce }), { nonce, context })),
     'TRUST_LEVEL_TOO_LOW',
   );
 });
 
 test('method substitution after signing is rejected', async () => {
   const { deviceId, prover, verifier } = simulatorFixture();
-  const { nonce, context } = issueChallenge(verifier, deviceId);
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
   const bundle = await prover.prove({ nonce });
   bundle.method = 'secure-enclave';
-  assert.equal(failureCode(verifier.verify(bundle, { nonce, context })), 'VERIFIER_UNAVAILABLE');
+  assert.equal(failureCode(await verifier.verify(bundle, { nonce, context })), 'VERIFIER_UNAVAILABLE');
 });
 
 test('caller-added trust level is rejected as an unknown bundle field', async () => {
   const { deviceId, prover, verifier } = simulatorFixture();
-  const { nonce, context } = issueChallenge(verifier, deviceId);
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
   const bundle = await prover.prove({ nonce });
   bundle.trustLevel = 'hardware';
-  assert.equal(failureCode(verifier.verify(bundle, { nonce, context })), 'MALFORMED_BUNDLE');
+  assert.equal(failureCode(await verifier.verify(bundle, { nonce, context })), 'MALFORMED_BUNDLE');
 });
 
 test('simulator provider cannot substitute hardware trust in its result', async () => {
@@ -133,9 +133,9 @@ test('simulator provider cannot substitute hardware trust in its result', async 
     useDefaultProviderVerifiers: false,
     providerVerifiers: [overstatingProvider],
   });
-  const { nonce, context } = issueChallenge(verifier, deviceId);
+  const { nonce, context } = await issueChallenge(verifier, deviceId);
   assert.equal(
-    failureCode(verifier.verify(await prover.prove({ nonce }), { nonce, context })),
+    failureCode(await verifier.verify(await prover.prove({ nonce }), { nonce, context })),
     'PROVIDER_RESULT_INVALID',
   );
 });

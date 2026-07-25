@@ -37,7 +37,7 @@ function harness(options = {}) {
     advance(milliseconds) { nowMs += milliseconds; },
     async freshProof(overrides = {}) {
       const proofContext = { ...context, ...overrides };
-      const nonce = verifier.nonceAuthority.issue(proofContext);
+      const nonce = await verifier.nonceAuthority.issue(proofContext);
       return { context: proofContext, nonce, proof: await prover.prove({ nonce }) };
     },
   };
@@ -53,8 +53,8 @@ test('fresh proof acceptance uses a fresh challenge for each verification', asyn
   const first = await value.freshProof();
   value.advance(1);
   const second = await value.freshProof();
-  const firstResult = value.verifier.verify(first.proof, first);
-  const secondResult = value.verifier.verify(second.proof, second);
+  const firstResult = await value.verifier.verify(first.proof, first);
+  const secondResult = await value.verifier.verify(second.proof, second);
   assert.equal(firstResult.valid, true);
   assert.equal(secondResult.valid, true);
   assert.notEqual(first.nonce, second.nonce);
@@ -65,13 +65,13 @@ test('cache expiration cannot turn an expired challenge into authorization', asy
   const value = harness({ nonceTtlSeconds: 1 });
   const attempt = await value.freshProof();
   value.advance(1_000);
-  assert.equal(failureCode(value.verifier.verify(attempt.proof, attempt)), 'NONCE_EXPIRED');
+  assert.equal(failureCode(await value.verifier.verify(attempt.proof, attempt)), 'NONCE_EXPIRED');
 });
 
 test('measurement change requires fresh evidence satisfying the configured policy', async () => {
   const baseline = harness();
   const accepted = await baseline.freshProof();
-  assert.equal(baseline.verifier.verify(accepted.proof, accepted).valid, true);
+  assert.equal((await baseline.verifier.verify(accepted.proof, accepted)).valid, true);
   const changed = new SimulatorProver({
     deviceId: baseline.deviceId,
     seed: 'fresh-seed',
@@ -79,10 +79,10 @@ test('measurement change requires fresh evidence satisfying the configured polic
     now: () => new Date('2026-01-01T00:00:00.000Z'),
   });
   const context = baseline.context;
-  const nonce = baseline.verifier.nonceAuthority.issue(context);
+  const nonce = await baseline.verifier.nonceAuthority.issue(context);
   const proof = await changed.prove({ nonce });
   assert.equal(
-    failureCode(baseline.verifier.verify(proof, { nonce, context })),
+    failureCode(await baseline.verifier.verify(proof, { nonce, context })),
     'MEASUREMENT_POLICY_FAILED',
   );
 });
@@ -90,12 +90,12 @@ test('measurement change requires fresh evidence satisfying the configured polic
 test('policy change reevaluates fresh evidence instead of reusing an old approval', async () => {
   const oldPolicy = harness();
   const accepted = await oldPolicy.freshProof();
-  assert.equal(oldPolicy.verifier.verify(accepted.proof, accepted).valid, true);
+  assert.equal((await oldPolicy.verifier.verify(accepted.proof, accepted)).valid, true);
 
   const newPolicy = harness({ expectedMeasurement: '0'.repeat(64) });
   const attempt = await newPolicy.freshProof();
   assert.equal(
-    failureCode(newPolicy.verifier.verify(attempt.proof, attempt)),
+    failureCode(await newPolicy.verifier.verify(attempt.proof, attempt)),
     'MEASUREMENT_POLICY_FAILED',
   );
 });
@@ -105,7 +105,7 @@ test('session change cannot reuse a challenge or verification result', async () 
   const attempt = await value.freshProof();
   const changed = { ...attempt, context: { ...attempt.context, sessionId: 'other-session' } };
   assert.equal(
-    failureCode(value.verifier.verify(attempt.proof, changed)),
+    failureCode(await value.verifier.verify(attempt.proof, changed)),
     'NONCE_CONTEXT_MISMATCH',
   );
 });
@@ -119,7 +119,7 @@ test('key rotation rejects proof signed by the previously enrolled key', async (
   });
   old.verifier.registerDevice(old.deviceId, rotated.publicKeyPem);
   const attempt = await old.freshProof();
-  assert.equal(failureCode(old.verifier.verify(attempt.proof, attempt)), 'KEY_ID_MISMATCH');
+  assert.equal(failureCode(await old.verifier.verify(attempt.proof, attempt)), 'KEY_ID_MISMATCH');
 });
 
 test('executor identifier reuse across sessions does not reuse attestation', async () => {
@@ -127,16 +127,16 @@ test('executor identifier reuse across sessions does not reuse attestation', asy
   const oldAttempt = await value.freshProof();
   const newContext = { ...oldAttempt.context, sessionId: 'new-session' };
   assert.equal(
-    failureCode(value.verifier.verify(oldAttempt.proof, { ...oldAttempt, context: newContext })),
+    failureCode(await value.verifier.verify(oldAttempt.proof, { ...oldAttempt, context: newContext })),
     'NONCE_CONTEXT_MISMATCH',
   );
   const fresh = await value.freshProof({ sessionId: 'new-session' });
-  assert.equal(value.verifier.verify(fresh.proof, fresh).valid, true);
+  assert.equal((await value.verifier.verify(fresh.proof, fresh)).valid, true);
 });
 
 test('stale proof is rejected even when its device and measurement remain enrolled', async () => {
   const value = harness({ proofTtlSeconds: 1, nonceTtlSeconds: 30 });
   const stale = await value.freshProof();
   value.advance(1_001);
-  assert.equal(failureCode(value.verifier.verify(stale.proof, stale)), 'PROOF_EXPIRED');
+  assert.equal(failureCode(await value.verifier.verify(stale.proof, stale)), 'PROOF_EXPIRED');
 });

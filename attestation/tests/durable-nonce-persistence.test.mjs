@@ -35,19 +35,19 @@ test('durable nonce state survives verifier restart', async () => {
     const context = nonceContext('durable-device');
     const first = new SqliteNoncePersistence(databasePath, 'restart-test');
     const authority = new NonceAuthority(60, () => fixedNow, first);
-    const nonce = authority.issue(context);
+    const nonce = await authority.issue(context);
     first.close();
 
     const second = new SqliteNoncePersistence(databasePath, 'restart-test');
     const afterRestart = new NonceAuthority(60, () => fixedNow + 1, second);
-    assert.equal(afterRestart.inspect(nonce)?.state, 'issued');
-    assert.equal(afterRestart.consume(nonce, context).accepted, true);
+    assert.equal((await afterRestart.inspect(nonce))?.state, 'issued');
+    assert.equal((await afterRestart.consume(nonce, context)).accepted, true);
     second.close();
 
     const third = new SqliteNoncePersistence(databasePath, 'restart-test');
     const finalAuthority = new NonceAuthority(60, () => fixedNow + 2, third);
-    assert.equal(finalAuthority.inspect(nonce)?.state, 'consumed');
-    assert.equal(finalAuthority.consume(nonce, context).status, 'consumed');
+    assert.equal((await finalAuthority.inspect(nonce))?.state, 'consumed');
+    assert.equal((await finalAuthority.consume(nonce, context)).status, 'consumed');
     third.close();
   });
 });
@@ -69,7 +69,7 @@ test('concurrent verifier processes accept one nonce exactly once', async () => 
     });
     const persistence = new SqliteNoncePersistence(databasePath, namespace, 10_000);
     const authority = new NonceAuthority(60, () => fixedNow, persistence);
-    const nonce = authority.issue(context);
+    const nonce = await authority.issue(context);
     persistence.close();
     const bundle = await prover.prove({ nonce });
     const inputPath = join(directory, 'worker-input.json');
@@ -105,9 +105,9 @@ test('nonce namespaces isolate independent verifier populations', async () => {
     const databasePath = join(directory, 'replay.sqlite3');
     const context = nonceContext('namespace-device');
     const first = new SqliteNoncePersistence(databasePath, 'population-a');
-    const nonce = new NonceAuthority(60, () => fixedNow, first).issue(context);
+    const nonce = await new NonceAuthority(60, () => fixedNow, first).issue(context);
     const second = new SqliteNoncePersistence(databasePath, 'population-b');
-    assert.equal(new NonceAuthority(60, () => fixedNow, second).inspect(nonce), undefined);
+    assert.equal(await new NonceAuthority(60, () => fixedNow, second).inspect(nonce), undefined);
     first.close();
     second.close();
   });
@@ -129,10 +129,10 @@ test('closed, corrupt, or incompatible durable nonce storage fails closed', asyn
       now: () => new Date(fixedNow),
       noncePersistence: persistence,
     });
-    const nonce = verifier.nonceAuthority.issue(context);
+    const nonce = await verifier.nonceAuthority.issue(context);
     const bundle = await prover.prove({ nonce });
     persistence.close();
-    const result = verifier.verify(bundle, { nonce, context });
+    const result = await verifier.verify(bundle, { nonce, context });
     assert.equal(result.valid, false);
     assert.equal(result.failureCode, 'VERIFIER_UNAVAILABLE');
 
