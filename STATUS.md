@@ -41,6 +41,7 @@
 - Replaced the prototype README with a concise technical-review entry point, actual demo results, measured claim boundaries, functional architecture, verification commands, and CI badge.
 - Added the safe `AdversarialRunner` interface, explicit synthetic campaign manifest, strict budget schema, declared-range validation, deterministic transcript replay, and human approval gate for non-simulated adapters.
 - Added a harmless five-step scripted adversary with no URLs, IP addresses, public-network destinations, raw commands, credentials with authority, or real infrastructure connectors.
+- Added a strict paired experiment format for `baseline` and `event-horizon` modes with deterministic scripted data and explicit unmeasured fields.
 
 ## Tests executed
 
@@ -58,6 +59,7 @@
 - Guardian compromise regression: 60 Python tests passed.
 - Public-demo regression: 61 Python tests passed; the PowerShell single-command demo and independent live-certificate verification passed.
 - Bounded-runner regression: 66 Python tests passed, including deterministic replay, range/destination rejection, budget exhaustion, and human-approval gating.
+- Experiment-format regression: 70 Python tests passed, including fixed comparison reproduction, strict pairing, and mislabel rejection.
 - CI-equivalent integration run: process-separated demo, generated evidence chain, generated certificate, and selected fixed vectors passed.
 - Repository lint/policy checks: 38 tracked Python files and 138 tracked repository paths passed.
 
@@ -90,6 +92,7 @@
 - Attestation provider-verifier interfaces, simulator and TPM verifier implementations, Linux TPM bundle signing, and adversarial dispatch tests
 - Attestation nonce authority, persistence interface, verifier call sites, process-boundary context binding, and concurrency tests
 - Bounded synthetic adversarial-runner interface, manifest schema, safe adapter, public example, documentation, and regression tests
+- Paired experiment validator, JSON schema, explicitly scripted reference comparison, documentation, and tests
 - `STATUS.md`
 
 ## Commands to reproduce
@@ -103,7 +106,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Add the baseline-versus-contained experiment schema and accurately labeled scripted reference comparison.
+Add implementation-level design-defense documentation aligned with the actual trust boundaries and limitations.
 
 ## Exact next command
 

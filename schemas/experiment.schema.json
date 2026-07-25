@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solsticestudio.ai/event-horizon/experiment.v1.schema.json",
+  "title": "Event Horizon paired experiment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "result_source", "real_campaign_result", "description", "baseline", "event_horizon"],
+  "properties": {
+    "schema": {"const": "event-horizon.experiment-comparison.v1"},
+    "result_source": {"const": "scripted-synthetic"},
+    "real_campaign_result": {"const": false},
+    "description": {"type": "string", "minLength": 1},
+    "baseline": {
+      "allOf": [
+        {"$ref": "#/$defs/experiment"},
+        {"properties": {"mode": {"const": "baseline"}, "attestation_digest": {"type": "null"}}}
+      ]
+    },
+    "event_horizon": {
+      "allOf": [
+        {"$ref": "#/$defs/experiment"},
+        {"properties": {"mode": {"const": "event-horizon"}, "attestation_digest": {"$ref": "#/$defs/digest"}}}
+      ]
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "signature"],
+      "properties": {
+        "algorithm": {"const": "Ed25519"},
+        "key_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"},
+        "signature": {"type": "string", "pattern": "^[A-Za-z0-9_-]{86}$"}
+      }
+    },
+    "experiment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "experiment_id", "mode", "result_source", "range_image_digest",
+        "attacker_configuration_digest", "policy_digest", "executor_measurement",
+        "attestation_digest", "seed", "start_time", "end_time", "maximum_privilege_stage",
+        "credentials_discovered", "credentials_successfully_exercised", "capability_replay_attempts",
+        "cross_executor_attempts", "lateral_targets_reached", "unauthorized_egress_bytes",
+        "persistence_after_teardown", "evidence_tampering_attempts",
+        "evidence_chain_verification", "certificate_signature"
+      ],
+      "properties": {
+        "schema": {"const": "event-horizon.experiment.v1"},
+        "experiment_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"},
+        "mode": {"enum": ["baseline", "event-horizon"]},
+        "result_source": {"const": "scripted-synthetic"},
+        "range_image_digest": {"$ref": "#/$defs/digest"},
+        "attacker_configuration_digest": {"$ref": "#/$defs/digest"},
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "executor_measurement": {"$ref": "#/$defs/digest"},
+        "attestation_digest": {"oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "seed": {"$ref": "#/$defs/count"},
+        "start_time": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "end_time": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "maximum_privilege_stage": {"enum": ["none", "synthetic-discovery", "synthetic-credential-use", "synthetic-lateral-access", "synthetic-persistence"]},
+        "credentials_discovered": {"$ref": "#/$defs/count"},
+        "credentials_successfully_exercised": {"$ref": "#/$defs/count"},
+        "capability_replay_attempts": {"$ref": "#/$defs/count"},
+        "cross_executor_attempts": {"$ref": "#/$defs/count"},
+        "lateral_targets_reached": {"$ref": "#/$defs/count"},
+        "unauthorized_egress_bytes": {"$ref": "#/$defs/count"},
+        "persistence_after_teardown": {"type": ["boolean", "null"]},
+        "evidence_tampering_attempts": {"$ref": "#/$defs/count"},
+        "evidence_chain_verification": {"enum": ["verified", "failed", "not-measured"]},
+        "certificate_signature": {"oneOf": [{"$ref": "#/$defs/signature"}, {"type": "null"}]}
+      }
+    }
+  }
+}

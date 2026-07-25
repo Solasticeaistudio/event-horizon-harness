@@ -123,6 +123,8 @@ Start with [RED_TEAM.md](RED_TEAM.md) and [SECURITY.md](SECURITY.md). Public tes
 
 The future campaign-engine boundary is intentionally limited to the [bounded synthetic adversarial runner](docs/ADVERSARIAL_RUNNER.md); no raw offensive platform or real-infrastructure connector is included.
 
+Paired `baseline` and `event-horizon` results use the strict [experiment format](docs/EXPERIMENT_FORMAT.md). The committed comparison is clearly labeled scripted synthetic data and is not a real campaign result.
+
 The fixed capability inputs are in [test-vectors](test-vectors/README.md):
 
 ```bash
