@@ -16,9 +16,9 @@ Release title: **Event Horizon v0.4.0 — Executor Attestation and Public-Artifa
 
 - [x] Provider-specific attestation verification derives trust from verifier output, not a bundle string.
 - [x] Unknown/missing/malformed providers and invalid TPM evidence fail closed.
-- [x] Every accepted attestation nonce is authority-issued, context-bound, and atomically one-use in one verifier process.
+- [x] Every accepted attestation nonce is authority-issued, context-bound, durable, and atomically one-use across cooperating local verifier processes.
 - [x] Development attestation creates a fresh proof for every session and has no success cache.
-- [x] Capability schemas, canonicalization, exact bindings, Ed25519 signatures, expiration, and atomic replay checks pass.
+- [x] Capability schemas, canonicalization, exact bindings, Ed25519 signatures, expiration, and durable cross-process replay checks pass.
 - [x] Guardian compromise, timeout, malformed-output, stale-response, policy-version, and static-policy failure tests pass.
 - [x] Demo replay, widening, executor transfer, prohibited egress, evidence tampering, teardown, and certificate checks pass.
 
@@ -35,8 +35,8 @@ Release title: **Event Horizon v0.4.0 — Executor Attestation and Public-Artifa
 
 - [x] `npm ci`
 - [x] `npm run build` for all eight TypeScript workspaces
-- [x] 42 portable TypeScript tests passed; one real Linux TPM integration test skipped by design
-- [x] 70 Python tests passed
+- [x] 46 portable TypeScript tests passed; one real Linux TPM integration test skipped by design
+- [x] 76 Python tests passed
 - [x] All eight fixed capability vectors passed
 - [x] PowerShell demo produced the documented result
 - [x] Generated Ed25519 containment certificate verified independently

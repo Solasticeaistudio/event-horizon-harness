@@ -29,6 +29,6 @@ The outer verifier accepts only known method identifiers, selects a registered p
 
 Every successful verification consumes a challenge that the configured nonce authority previously issued or registered. The challenge is bound to device ID, executor ID, session ID, and purpose. Its immutable authority record also contains issuance and expiration timestamps. Consumption is one atomic `issued -> consumed` transition; expiration is `issued -> expired`. Unknown, malformed, expired, consumed, or wrong-context challenges fail closed.
 
-The shipped persistence implementation is atomic only inside one Node.js process. The persistence interface is suitable for a future Redis or transactional-database implementation, but that implementation must perform compare-and-transition as one server-side transaction. This repository does not claim distributed nonce atomicity.
+The default bridge uses `SqliteNoncePersistence`. Its conditional update is atomic across cooperating verifier processes that share one namespace and SQLite database on a local filesystem, and consumed state survives verifier restarts. Database unavailability, corruption, or an unsupported schema version fails closed. This does not claim multi-host, network-filesystem, rollback-resistant, or Byzantine-client atomicity; see [Durable replay state](REPLAY_STATE.md).
 
 The fixed verifier tests cover method substitution, trust substitution, invalid TPM evidence, missing verifiers, nonce state and context, one-use concurrency, replay, and development-versus-hardware policy.

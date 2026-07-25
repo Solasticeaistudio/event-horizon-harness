@@ -6,7 +6,7 @@ Event Horizon is a research harness, not a production containment system.
 - TPM quote generation and independent verification remain incomplete for a production deployment. Synthetic fixtures and `swtpm` exercise code paths but do not establish physical hardware provenance, endorsement, fleet enrollment, or production measurement policy.
 - The Executor Attestation simulator does not constitute hardware attestation and can produce only development trust.
 - The evidence recorder is an independent logical process in the demo. It is not yet physically one-way or independently hosted, and a compromised host kernel remains inside the trusted computing base.
-- Nonce and capability consumption are atomic only within one verifier or broker process. No distributed Redis or transactional database backend ships.
+- SQLite-backed nonce and capability consumption is durable and atomic across cooperating processes on one host. It is not a multi-host or network-filesystem guarantee; database deletion, rollback, filesystem compromise, namespace/domain misconfiguration, and unbounded record retention remain security and operational limitations. In the portable same-user process fallback, keeping the authority path out of executor configuration is logical separation rather than enforced filesystem isolation.
 - Tests are currently authored by the project creator and automated tooling. They are not independent validation.
 - No claim is made that a frontier model has been contained. The demonstrations use deterministic synthetic actions and a harmless scripted adversary.
 - No external security audit has occurred.

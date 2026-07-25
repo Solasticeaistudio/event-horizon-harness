@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 
 from event_horizon.canonical import digest
 from event_horizon.models import ActionRequest
@@ -61,6 +63,52 @@ class ProcessHarnessTests(unittest.TestCase):
         replay = self.harness.execute(request, capability, attestation)
         self.assertFalse(replay.success)
         self.assertIn('replay', replay.error)
+
+    def test_durable_replay_state_survives_authority_service_restarts(self):
+        request, capability, attestation = self.issue(request_id='durable-service-restart')
+        self.assertTrue(self.harness.execute(request, capability, attestation).success)
+        with closing(sqlite3.connect(self.harness.authority_replay_path)) as database:
+            nonce_states = database.execute(
+                "SELECT state, COUNT(*) FROM attestation_nonces GROUP BY state"
+            ).fetchall()
+            broker_domains = database.execute(
+                "SELECT domain, COUNT(*) FROM capability_consumptions GROUP BY domain"
+            ).fetchall()
+        with closing(sqlite3.connect(self.harness.executor_replay_path)) as database:
+            executor_domains = database.execute(
+                "SELECT domain, COUNT(*) FROM capability_consumptions GROUP BY domain"
+            ).fetchall()
+        self.assertIn(('consumed', 1), nonce_states)
+        self.assertEqual(dict(broker_domains), {'broker': 1})
+        self.assertEqual(dict(executor_domains), {'executor:exec-1': 1})
+        executor_config = self.harness.config_paths['executor'].read_text(encoding='utf-8')
+        self.assertNotIn(str(self.harness.authority_replay_path), executor_config)
+
+        self.harness.restart_role('verifier')
+        self.issue(request_id='after-verifier-restart')
+        with closing(sqlite3.connect(self.harness.authority_replay_path)) as database:
+            consumed_nonces = database.execute(
+                "SELECT COUNT(*) FROM attestation_nonces WHERE state = 'consumed'"
+            ).fetchone()[0]
+        self.assertEqual(consumed_nonces, 2)
+
+        signer_key = self.harness.service_info['signer']['key_id']
+        self.assertEqual(self.harness.restart_role('signer')['key_id'], signer_key)
+        self.harness.restart_role('executor')
+        replay = self.harness.execute(request, capability, attestation)
+        self.assertFalse(replay.success)
+        self.assertIn('replay', replay.error)
+        direct = self.harness.call(
+            'executor',
+            'execute',
+            {
+                'request': request.canonical_payload(),
+                'capability': capability.to_dict(),
+                'attestation': dict(attestation),
+            },
+        )
+        self.assertFalse(direct['success'])
+        self.assertIn('replay', direct['error'])
 
     def test_session_executor_and_attestation_substitution_fail(self):
         request, capability, attestation = self.issue()

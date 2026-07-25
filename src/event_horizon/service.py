@@ -23,6 +23,7 @@ from .models import ActionRequest, GuardianDecision, IssuedCapability, Validatio
 from .policy import OperationRule, StaticPolicy
 from .protocol import MessageSpec, ProtocolError, StrictRpcServer
 from .recorder import ExternalRecorder
+from .replay_state import SqliteCapabilityConsumptionStore
 
 
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
@@ -119,12 +120,18 @@ def _parser_specs(config_path: Path) -> dict[str, MessageSpec]:
 
 
 def _verifier_specs(config_path: Path) -> dict[str, MessageSpec]:
-    config = _load_config(config_path, 'verifier', {'attestation_root', 'device_seeds'})
+    config = _load_config(
+        config_path,
+        'verifier',
+        {'attestation_root', 'device_seeds', 'replay_database', 'replay_namespace'},
+    )
     if not isinstance(config['device_seeds'], dict):
         raise RuntimeError('verifier device enrollment is invalid')
     provider = DevelopmentAttestationProvider(
         attestation_root=Path(config['attestation_root']),
         device_seeds=config['device_seeds'],
+        replay_database=Path(config['replay_database']),
+        replay_namespace=config['replay_namespace'],
     )
 
     def verify_executor(body: dict[str, Any]) -> Mapping[str, Any]:
@@ -267,8 +274,30 @@ def _guardian_result(value: Any, request: ActionRequest) -> dict[str, Any]:
 
 
 def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
-    config = _load_config(config_path, 'signer', {'ttl_seconds'})
-    broker = CapabilityBroker(ttl_seconds=float(config['ttl_seconds']))
+    config = _load_config(
+        config_path,
+        'signer',
+        {
+            'ttl_seconds', 'signing_seed_hex', 'replay_database',
+            'replay_namespace', 'consumption_domain',
+        },
+    )
+    try:
+        signing_seed = bytes.fromhex(config['signing_seed_hex'])
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError('capability signing seed is invalid') from exc
+    if len(signing_seed) != 32:
+        raise RuntimeError('capability signing seed must be exactly 32 bytes')
+    consumption_store = SqliteCapabilityConsumptionStore(
+        config['replay_database'],
+        namespace=config['replay_namespace'],
+        domain=config['consumption_domain'],
+    )
+    broker = CapabilityBroker(
+        signing_seed,
+        ttl_seconds=float(config['ttl_seconds']),
+        consumption_store=consumption_store,
+    )
 
     def issue(body: dict[str, Any]) -> Mapping[str, Any]:
         request = _action(body['request'])
@@ -359,11 +388,21 @@ def _executor_specs(config_path: Path) -> dict[str, MessageSpec]:
         {
             'executor_id', 'device_id', 'measurement', 'verifier_policy_digest',
             'policy_digest', 'signer_public_key', 'signer_key_id', 'objects',
+            'replay_database', 'replay_namespace', 'consumption_domain',
         },
     )
     if not isinstance(config['objects'], dict):
         raise RuntimeError('executor object fixtures are invalid')
-    verifier = CapabilityVerifier(config['signer_public_key'], config['signer_key_id'])
+    consumption_store = SqliteCapabilityConsumptionStore(
+        config['replay_database'],
+        namespace=config['replay_namespace'],
+        domain=config['consumption_domain'],
+    )
+    verifier = CapabilityVerifier(
+        config['signer_public_key'],
+        config['signer_key_id'],
+        consumption_store,
+    )
     executor = SacrificialExecutor(
         executor_id=config['executor_id'],
         device_id=config['device_id'],

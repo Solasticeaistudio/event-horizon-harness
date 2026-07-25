@@ -11,14 +11,14 @@ The tested claim is narrower than general containment: compromise inside the hos
 - Strict canonical requests cross explicit process boundaries with bounded schemas and duplicate-key rejection.
 - Executor Attestation issues a fresh, context-bound nonce and dispatches verification by signed-bundle method. The default public demo uses a simulator and labels it development-only.
 - An Ed25519 capability binds the exact request, arguments, session, executor, device, measurement, attestation, verifier policy, static policy, expiry, output limit, and one-use identifier.
-- The signer and executor independently reconstruct request and argument digests. Replay consumption is atomic inside one broker process.
+- The signer and executor independently reconstruct request and argument digests. SQLite-backed replay state makes nonce and capability consumption durable and atomic across cooperating processes on one host.
 - Four required guardians form a unanimity veto. Missing, malformed, stale, inconsistent, crashed, or timed-out decisions deny execution.
 - An independent logical evidence recorder hash-chains events and signs receipts. A detached Ed25519 containment certificate covers the recorded evidence domains and verified teardown.
 - Fixed adversarial vectors and compromise-injection tests exercise parser disagreement, substitution, replay, guardian failure, evidence tampering, and transfer attempts.
 
 ## What it does not demonstrate
 
-This repository does not demonstrate containment of a frontier model, production Firecracker isolation, production TPM enrollment or hardware provenance, resistance to host-kernel compromise, physically one-way evidence storage, distributed replay-state atomicity, or an independent security audit. The scripted adversary uses harmless synthetic actions; it is not a real offensive campaign result.
+This repository does not demonstrate containment of a frontier model, production Firecracker isolation, production TPM enrollment or hardware provenance, resistance to host-kernel compromise, physically one-way evidence storage, multi-host replay-state atomicity, or an independent security audit. The scripted adversary uses harmless synthetic actions; it is not a real offensive campaign result.
 
 See [Known limitations](KNOWN_LIMITATIONS.md) for the complete claim boundary.
 
@@ -64,7 +64,7 @@ requests, decisions, capabilities and results
     -> Signed Containment Certificate
 ```
 
-Physical separation of the evidence plane is future work. Implementation details are in [Architecture](docs/ARCHITECTURE.md), [Guardian quorum semantics](docs/GUARDIAN_QUORUM.md), and [Executor Attestation architecture](docs/ATTESTATION_ARCHITECTURE.md).
+Physical separation of the evidence plane is future work. Implementation details are in [Architecture](docs/ARCHITECTURE.md), [Guardian quorum semantics](docs/GUARDIAN_QUORUM.md), [Executor Attestation architecture](docs/ATTESTATION_ARCHITECTURE.md), and [Durable replay state](docs/REPLAY_STATE.md).
 
 ## Quick start
 
@@ -115,7 +115,7 @@ python scripts/verify_certificate.py .demo/latest-containment-certificate.json
 python scripts/check_repository_policy.py
 ```
 
-`npm test` currently runs 43 TypeScript tests—42 pass and the real-TPM integration test is opt-in—and 70 Python tests. For an isolated clone, run `scripts/verify-clean-install.sh` or `scripts/verify-clean-install.ps1`.
+The exact current test counts are recorded in [STATUS.md](STATUS.md). The real-TPM integration test is opt-in on a configured Linux host. For an isolated clone, run `scripts/verify-clean-install.sh` or `scripts/verify-clean-install.ps1`.
 
 The [implementation-level design defense](docs/DESIGN_DEFENSE.md) maps the central security questions to the current code and trust assumptions.
 
@@ -138,16 +138,16 @@ Report plausible containment bypasses privately before publishing details.
 
 ## Current limitations
 
-The default execution path is process separation, not a production microVM. TPM fixtures and `swtpm` do not establish hardware provenance. The evidence recorder is logically independent but runs on the same host. Nonce and capability atomicity are single-process guarantees. Tests are project-authored and automated, and no external audit has occurred.
+The default execution path is process separation, not a production microVM. TPM fixtures and `swtpm` do not establish hardware provenance. The evidence recorder is logically independent but runs on the same host. SQLite replay atomicity is limited to one host and one local database; database rollback or compromise remains in the trusted computing base. Tests are project-authored and automated, and no external audit has occurred.
 
 These are active limitations, not deployment footnotes. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Roadmap
 
-1. Move nonce and capability consumption to a transactional cross-process backend.
-2. Complete production TPM enrollment, endorsement validation, quote generation, and measurement policy.
-3. Run the executor in a reproducibly built Firecracker image with enforced host controls and teardown.
-4. Place the authoritative recorder and certificate key behind a separately administered boundary.
+1. Place capability signing and authoritative evidence behind separately administered, protected boundaries.
+2. Add a linearizable multi-host replay backend with authenticated clients and rollback defenses.
+3. Complete production TPM enrollment, endorsement validation, quote generation, and measurement policy.
+4. Run the executor in a reproducibly built Firecracker image with enforced host controls and teardown.
 5. Commission independent parser, capability, attestation, evidence, and containment review.
 
 Contribution requirements are in [CONTRIBUTING.md](CONTRIBUTING.md). The repository retains its existing source-review license; see [LICENSE](LICENSE).

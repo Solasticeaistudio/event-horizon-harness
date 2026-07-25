@@ -38,6 +38,8 @@ The `eh-attest` CLI supports explicit development workflows. The remote service 
 
 The development bridge does not cache success by executor identity. Every capability request causes a fresh session-bound nonce to be issued, a new proof to be produced, and that nonce to be consumed before the attestation result digest is bound into the capability. Measurement, verifier policy, device key, executor, or session changes therefore require a new verification.
 
+The default bridge persists nonce records in SQLite outside the sacrificial executor. A conditional `issued -> consumed` update is atomic across cooperating verifier processes using the same local database and namespace, and the record survives verifier restart. This is a single-host guarantee; [Durable replay state](REPLAY_STATE.md) defines the storage assumptions and remaining rollback risk.
+
 ## Authority relationship
 
 Successful attestation is necessary where policy requires it, but never sufficient. The broker binds the verified bundle digest, verification-result digest, verifier-policy digest, device identity, executor measurement, executor identity, session identity, exact operation, exact arguments, static-policy digest, expiration, and one-use identifier into the signed capability.

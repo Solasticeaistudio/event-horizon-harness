@@ -229,7 +229,12 @@ export class Verifier {
         at,
       );
     }
-    const nonceTransition = this.nonceAuthority.consume(options.nonce, options.context);
+    let nonceTransition;
+    try {
+      nonceTransition = this.nonceAuthority.consume(options.nonce, options.context);
+    } catch {
+      return failure('VERIFIER_UNAVAILABLE', 'nonce persistence failed closed', at);
+    }
     if (!nonceTransition.accepted) {
       if (nonceTransition.status === 'unknown') {
         return failure('NONCE_UNKNOWN', 'nonce was not issued or registered by this verifier', at);

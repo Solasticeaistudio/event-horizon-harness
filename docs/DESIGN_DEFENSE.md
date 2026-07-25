@@ -20,15 +20,15 @@ The executor reconstructs the request and arguments digests independently and co
 
 ## 4. Why can it be used only once?
 
-Every capability has `invocation_limit = 1` and a unique `capability_id`. After signature, time, request, executor, attestation, policy, and key checks succeed, `verify_and_consume` acquires a lock and inserts that ID into a consumed set. A second or concurrent redemption is denied. The process-separated path consumes at the external signer and again at the executor's public-key verifier; failure after the first transition burns the capability rather than restoring it.
+Every capability has `invocation_limit = 1` and a unique `capability_id`. After signature, time, request, executor, attestation, policy, and key checks succeed, `verify_and_consume` hashes the complete signed claims and asks its configured consumption store to insert the capability ID once. The default process-separated path uses SQLite transactions. A second or concurrent redemption is denied. It consumes in the authority-side broker domain and again in a distinct executor domain; failure after the first transition burns the capability rather than restoring it.
 
-This atomicity and replay memory are process-local. They do not survive a broker-state loss or provide distributed atomicity. A production implementation needs a durable transactional consume operation shared by all broker replicas.
+The committed multi-process test races 16 spawned broker verifiers and requires exactly one success. Consumption survives signer and executor process restarts. The guarantee applies only when every replica for a domain shares the same namespace and SQLite database on a local filesystem. Multi-host use, database rollback, hostile database clients, and authority-file compromise are not covered.
 
 ## 5. How is nonce replay prevented?
 
 The verifier accepts only a canonical 32-byte nonce that its `NonceAuthority` issued or explicitly registered. The authority record binds device ID, executor ID, session ID, purpose, issuance time, expiration time, and an immutable context digest. Only after provider-specific proof verification succeeds does the authority perform one atomic `issued -> consumed` transition. Unknown, malformed, expired, already consumed, and wrong-context nonces fail closed; simultaneous verification attempts can produce at most one accepted transition.
 
-The shipped in-memory persistence is atomic only within one Node.js verifier process. `NoncePersistence` defines a future compare-and-transition boundary for Redis or a transactional database, but no distributed backend ships.
+The default verifier bridge uses `SqliteNoncePersistence`, whose conditional `UPDATE` is atomic across cooperating local verifier processes and durable across their restarts. A committed test races 24 separate Node processes and requires exactly one successful verification. The in-memory implementation remains available for isolated unit tests. This is not a multi-host or network-filesystem guarantee, and the authority database must be protected against rollback and compromise.
 
 ## 6. How does the verifier distinguish simulator trust from hardware trust?
 
@@ -48,7 +48,7 @@ Issuance is denied. The static guardian is required exactly once, must approve t
 
 ## 9. What is the highest-value trusted-computing-base attack?
 
-Stealing or controlling the capability-signing key and signer path is the most direct authority attack: a forger that also knows the executor's configured bindings could create capabilities without a genuine guardian decision. Closely related targets are the executor's trusted public-key/policy configuration and the static-policy evaluator. Production deployment therefore needs hardware-backed or separately administered signing, authenticated configuration and rollout, least-privilege signer APIs, durable replay state, and independent monitoring. None of those production controls is claimed here.
+Stealing or controlling the capability-signing key and signer path is the most direct authority attack: a forger that also knows the executor's configured bindings could create capabilities without a genuine guardian decision. Closely related targets are the executor's trusted public-key/policy configuration, the static-policy evaluator, and deletion or rollback of authoritative replay state. Production deployment therefore needs hardware-backed or separately administered signing, authenticated configuration and rollout, least-privilege signer APIs, rollback-resistant replay storage, and independent monitoring. None of those production controls is claimed here.
 
 For evidence rather than authority, compromise of the recorder/certificate signing boundary is comparably decisive because it could create apparently authoritative false evidence.
 
@@ -66,13 +66,13 @@ An optional Firecracker development runner and `swtpm` fixtures exist, but neith
 
 ## 12. What would be required for a real Firecracker deployment?
 
-A production target needs a pinned and reproducibly built Firecracker/VMM, kernel, and minimal immutable root filesystem; native Linux/KVM; the Firecracker jailer or equivalent namespaces, cgroups, uid/gid isolation, seccomp, resource quotas, and host hardening; authenticated image and configuration rollout; a fixed bounded vsock protocol; no guest NIC or ambient host mounts; isolated scratch lifecycle; enforced watchdog teardown; durable replay state; and evidence exported to a separately administered recorder. It also needs tests against kernel, VMM, device-model, vsock, teardown, and host-control failure modes.
+A production target needs a pinned and reproducibly built Firecracker/VMM, kernel, and minimal immutable root filesystem; native Linux/KVM; the Firecracker jailer or equivalent namespaces, cgroups, uid/gid isolation, seccomp, resource quotas, and host hardening; authenticated image and configuration rollout; a fixed bounded vsock protocol; no guest NIC or ambient host mounts; isolated scratch lifecycle; enforced watchdog teardown; replay state that the guest cannot access or roll back; and evidence exported to a separately administered recorder. It also needs tests against kernel, VMM, device-model, vsock, teardown, and host-control failure modes.
 
 The repository currently has a route-less, read-only-rootfs development configuration and watchdog, plus one nested-WSL2 development fixture. It does not provide a production jailer deployment or claim resistance to host-kernel compromise.
 
 ## 13. What would be required for real TPM attestation?
 
-The current verifier parses and verifies a constrained RSA/SHA-256 TPM quote path, but production hardware trust additionally requires real device enrollment; endorsement and attestation-key provenance; protected key lifecycle and rotation; manufacturer or organizational trust anchors; quote generation on the target hardware; an approved PCR-selection and measurement policy tied to reproducible boot artifacts; validated measured-boot event logs; secure freshness and fleet-scale nonce state; revocation; downgrade handling; and an independently operated verifier and device registry. Those pieces need conformance testing against deployed TPMs. `swtpm` and synthetic fixtures do not establish physical hardware provenance.
+The current verifier parses and verifies a constrained RSA/SHA-256 TPM quote path, but production hardware trust additionally requires real device enrollment; endorsement and attestation-key provenance; protected key lifecycle and rotation; manufacturer or organizational trust anchors; quote generation on the target hardware; an approved PCR-selection and measurement policy tied to reproducible boot artifacts; validated measured-boot event logs; secure freshness and a linearizable multi-host nonce authority; revocation; downgrade handling; and an independently operated verifier and device registry. Those pieces need conformance testing against deployed TPMs. `swtpm` and synthetic fixtures do not establish physical hardware provenance.
 
 ## 14. How is authoritative evidence protected?
 
@@ -82,4 +82,4 @@ In the demo this is logical separation, not physical independence or one-way sto
 
 ## 15. Which claims are not yet externally validated?
 
-There has been no independent audit, third-party parser review, production TPM validation, production Firecracker assessment, separately hosted evidence test, distributed replay-backend test, or frontier-model containment experiment. Tests are authored by the project creator and automated tooling. The artifact demonstrates deterministic synthetic security regressions in its documented topology; it does not establish production readiness or general frontier-model containment.
+There has been no independent audit, third-party parser review, production TPM validation, production Firecracker assessment, separately hosted evidence test, multi-host replay-backend test, rollback-resistance assessment, or frontier-model containment experiment. Tests are authored by the project creator and automated tooling. The artifact demonstrates deterministic synthetic security regressions in its documented topology; it does not establish production readiness or general frontier-model containment.

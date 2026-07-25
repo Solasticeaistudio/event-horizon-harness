@@ -8,6 +8,7 @@ All notable public-artifact changes are recorded here. The project follows seman
 
 - Provider-specific Executor Attestation verification with strict simulator and TPM trust separation.
 - Context-bound, atomic one-use nonce authority and concurrency tests.
+- Durable SQLite nonce and capability consumption across cooperating local verifier and broker processes, including restart, contention, corruption, and schema-version tests.
 - Fresh per-session development attestation with no executor-ID success cache.
 - Strict capability schemas, canonicalization defenses, public verification vectors, and atomic replay tests.
 - Guardian compromise and coordination-failure injection tests.
@@ -22,6 +23,7 @@ All notable public-artifact changes are recorded here. The project follows seman
 - Renamed the attestation subsystem and public APIs to descriptive Executor Attestation terminology.
 - Replaced mythology-based public labels with functional component names.
 - Converted capability timestamps to integer Unix milliseconds with exclusive expiration.
+- Aligned the importable Python package version with the `0.4.0` project metadata.
 
 ### Removed
 

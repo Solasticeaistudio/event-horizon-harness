@@ -31,7 +31,7 @@ Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes 
 2. Executor Attestation verifies a verifier-issued one-time nonce, registered device/AK identity, signed measurement evidence, freshness, PCR selection, and policy. It returns evidence, never authorization.
 3. The Static Policy Guardian, Executor Attestation Guardian, Lineage Budget Guardian, and Behavioral Transition Guardian each evaluate the same request. One permissive guardian cannot override another veto or widen static policy.
 4. The broker asks the isolated signer to mint a short-lived capability for the exact canonical request digest.
-5. The executor accepts only the public verification key and rechecks every binding before one pre-registered operation. Redemption state outside the executor prevents replay after executor compromise.
+5. The authority-side broker atomically burns each capability before dispatch. The executor receives the public verification key, expected bindings, and a separate defense-in-depth replay database—never the signing key or authoritative replay database—and rechecks every binding before one pre-registered operation.
 6. The independent logical evidence recorder returns a signed receipt for every fixed-size event envelope. Evidence Chain Verification signs a certificate only after recorder verification and verified teardown.
 
 ## Capability bindings
@@ -53,6 +53,8 @@ Guardian combination is unanimity with mandatory identities, not majority voting
 | Evidence Chain Verification | Final evidence-domain validation and signature | Capability minting and workload access |
 | Firecracker, host kernel, KVM, guest image, watchdog | Hardware cell isolation and teardown in KVM mode | External service credentials |
 | TPM, AK, `tpm2-tools`, Executor Attestation parser | Hardware identity/measurement evidence in TPM mode | Action authorization |
+
+The default local topology stores authoritative nonce and broker consumption state in one SQLite database outside the executor and executor consumption in a separate SQLite database. Conditional transitions are durable across cooperating process restarts on one host. The files, WALs, namespace/domain configuration, rollback protection, and host filesystem remain trusted; see [REPLAY_STATE.md](REPLAY_STATE.md).
 
 The model, hostile executor contents, synthetic services, local audit decoy, model-based guardian, and human-facing output are untrusted. Development deployments currently run the seven trusted processes on one host; distinct processes reduce key exposure and confused-deputy paths but do not make a compromised host kernel trustworthy.
 

@@ -12,6 +12,7 @@ from .guardians import AttestationGuardian, GuardianQuorum, LineageBudgetGuardia
 from .intent_canonicalizer import IntentCanonicalizer
 from .policy import OperationRule, StaticPolicy
 from .recorder import ExternalRecorder
+from .replay_state import SqliteCapabilityConsumptionStore
 
 
 def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
@@ -24,6 +25,8 @@ def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
     attestation_provider = DevelopmentAttestationProvider(
         attestation_root=attestation_root,
         device_seeds={"exec-1": attestation_seed},
+        replay_database=workdir / "trusted-control" / "replay-state.sqlite3",
+        replay_namespace="local-harness",
     )
     policy = StaticPolicy(
         policy_id="eh-demo-policy-v0.3",
@@ -49,7 +52,15 @@ def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
         SequenceGuardian(),
     ]
     quorum = GuardianQuorum(guardians)
-    broker = CapabilityBroker(secrets.token_bytes(32), ttl_seconds=ttl_seconds)
+    broker = CapabilityBroker(
+        secrets.token_bytes(32),
+        ttl_seconds=ttl_seconds,
+        consumption_store=SqliteCapabilityConsumptionStore(
+            workdir / "trusted-control" / "replay-state.sqlite3",
+            namespace="local-harness",
+            domain="local-broker-executor",
+        ),
+    )
     neural = IntentCanonicalizer(policy, quorum, broker, recorder, {"exec-1": measurement})
     verifier_policy_digest = digest({
         "provider": "attestation-development-bridge",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import threading
 from dataclasses import dataclass, field
@@ -86,6 +87,8 @@ class DevelopmentAttestationProvider:
     device_seeds: Mapping[str, str]
     node_binary: str = "node"
     timeout_seconds: float = 10.0
+    replay_database: Path | None = None
+    replay_namespace: str = "event-horizon"
     _lock: threading.RLock = field(default_factory=threading.RLock, init=False)
 
     def verify_executor(
@@ -102,6 +105,10 @@ class DevelopmentAttestationProvider:
             if not script.exists():
                 raise AttestationError(f"Executor Attestation bridge missing: {script}")
             try:
+                environment = os.environ.copy()
+                if self.replay_database is not None:
+                    environment["EH_ATTESTATION_REPLAY_DB"] = str(self.replay_database.resolve())
+                    environment["EH_ATTESTATION_REPLAY_NAMESPACE"] = self.replay_namespace
                 completed = subprocess.run(
                     [self.node_binary, str(script), executor_id, seed, session_id, purpose],
                     cwd=self.attestation_root,
@@ -109,6 +116,7 @@ class DevelopmentAttestationProvider:
                     text=True,
                     timeout=self.timeout_seconds,
                     check=False,
+                    env=environment,
                 )
             except (OSError, subprocess.TimeoutExpired) as exc:
                 raise AttestationError(f"Executor Attestation verifier unavailable: {exc}") from exc

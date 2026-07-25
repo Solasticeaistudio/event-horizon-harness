@@ -37,9 +37,9 @@ export interface NonceTransitionResult {
 /**
  * Persistence boundary for one atomic compare-and-transition operation.
  *
- * A Redis or transactional-database implementation must implement
- * transitionToConsumed as one server-side transaction. This artifact ships
- * only the in-memory implementation and makes no distributed-atomicity claim.
+ * The shipped SQLite implementation performs the transition in one local
+ * database statement. A future remote implementation must preserve that
+ * property with one server-side transaction; check-then-delete is unsafe.
  */
 export interface NoncePersistence {
   createIssued(record: Readonly<NonceRecord>): boolean;

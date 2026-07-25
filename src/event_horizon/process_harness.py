@@ -146,6 +146,8 @@ class ProcessSeparatedHarness:
         self.workdir = Path(workdir)
         self.repository_root = Path(__file__).resolve().parents[2]
         self.trusted_dir = self.workdir / 'trusted-control'
+        self.authority_replay_path = self.trusted_dir / 'replay-state.sqlite3'
+        self.executor_replay_path = self.workdir / 'executor-state' / 'replay-state.sqlite3'
         self.recorder_path = self.workdir / 'external-evidence' / 'events.jsonl'
         self.ttl_seconds = ttl_seconds
         self.inject_permissive_guardian = inject_permissive_guardian
@@ -218,12 +220,19 @@ class ProcessSeparatedHarness:
             'expectedExecutorMeasurement': measurement,
         })
         attestation_root = self.repository_root / 'attestation'
+        replay_namespace = 'public-process-harness'
+        capability_seed = secrets.token_bytes(32)
 
         try:
             self._start_role('parser', {})
             self._start_role(
                 'verifier',
-                {'attestation_root': str(attestation_root), 'device_seeds': {'exec-1': simulator_seed}},
+                {
+                    'attestation_root': str(attestation_root),
+                    'device_seeds': {'exec-1': simulator_seed},
+                    'replay_database': str(self.authority_replay_path),
+                    'replay_namespace': replay_namespace,
+                },
             )
             self._start_role(
                 'guardians',
@@ -234,7 +243,16 @@ class ProcessSeparatedHarness:
                     'inject_permissive_guardian': self.inject_permissive_guardian,
                 },
             )
-            signer = self._start_role('signer', {'ttl_seconds': self.ttl_seconds})
+            signer = self._start_role(
+                'signer',
+                {
+                    'ttl_seconds': self.ttl_seconds,
+                    'signing_seed_hex': capability_seed.hex(),
+                    'replay_database': str(self.authority_replay_path),
+                    'replay_namespace': replay_namespace,
+                    'consumption_domain': 'broker',
+                },
+            )
             recorder_seed = secrets.token_bytes(32)
             self._start_role(
                 'recorder',
@@ -255,6 +273,9 @@ class ProcessSeparatedHarness:
                     'policy_digest': policy_digest,
                     'signer_public_key': signer_info['public_key_pem'],
                     'signer_key_id': signer_info['key_id'],
+                    'replay_database': str(self.executor_replay_path),
+                    'replay_namespace': replay_namespace,
+                    'consumption_domain': 'executor:exec-1',
                     'objects': {
                         'target-source': {'name': 'synthetic-target', 'content': 'safe fixture'},
                         'public-evidence': {'finding': 'contained'},
@@ -453,6 +474,21 @@ class ProcessSeparatedHarness:
         client = self.clients.pop(role, None)
         if client is not None:
             client.stop()
+
+    def restart_role(self, role: str) -> dict[str, Any]:
+        if role not in {'verifier', 'signer', 'executor'}:
+            raise ValueError('only authority-state roles use the generic restart path')
+        config_path = self.config_paths.get(role)
+        if config_path is None:
+            raise ServiceUnavailable(f'{role} service configuration is unavailable')
+        config = json.loads(config_path.read_text(encoding='utf-8'))
+        if not isinstance(config, dict) or config.pop('role', None) != role:
+            raise ServiceUnavailable(f'{role} service configuration is malformed')
+        self.stop_role(role)
+        client = self._start_role(role, config)
+        info = client.call('info', {})
+        self.service_info[role] = info
+        return info
 
     def restart_recorder(self) -> dict[str, Any]:
         config_path = self.config_paths['recorder']

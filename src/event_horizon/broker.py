@@ -5,7 +5,6 @@ import hashlib
 import math
 import re
 import secrets
-import threading
 import time
 from typing import Any
 
@@ -15,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from .canonical import canonical_bytes, digest
 from .models import ActionRequest, CapabilityClaims, IssuedCapability
+from .replay_state import CapabilityConsumptionStore, InMemoryCapabilityConsumptionStore
 
 
 class CapabilityError(PermissionError):
@@ -116,10 +116,33 @@ def _verified_claims(
     return claims
 
 
-class CapabilityVerifier:
-    """Public-key-only verifier with local one-use consumption state."""
+def _consume_once(
+    store: CapabilityConsumptionStore,
+    claims: CapabilityClaims,
+    now: float | None,
+) -> None:
+    try:
+        accepted = store.consume(
+            claims.capability_id,
+            digest(claims.to_dict()),
+            claims.expires_at,
+            _now_ms(now),
+        )
+    except Exception as exc:
+        raise CapabilityError("capability replay state unavailable") from exc
+    if not accepted:
+        raise CapabilityError("capability replay detected")
 
-    def __init__(self, public_key: str | bytes | Ed25519PublicKey, key_id: str):
+
+class CapabilityVerifier:
+    """Public-key-only verifier with injected one-use consumption state."""
+
+    def __init__(
+        self,
+        public_key: str | bytes | Ed25519PublicKey,
+        key_id: str,
+        consumption_store: CapabilityConsumptionStore | None = None,
+    ):
         if isinstance(public_key, Ed25519PublicKey):
             loaded = public_key
         else:
@@ -132,8 +155,7 @@ class CapabilityVerifier:
             raise ValueError("capability key_id does not match the supplied public key")
         self._public_key = loaded
         self.key_id = actual_key_id
-        self._consumed: set[str] = set()
-        self._lock = threading.RLock()
+        self.consumption_store = consumption_store or InMemoryCapabilityConsumptionStore()
 
     def verify_and_consume(
         self,
@@ -158,19 +180,16 @@ class CapabilityVerifier:
             policy_digest=policy_digest,
             now=now,
         )
-        with self._lock:
-            if claims.capability_id in self._consumed:
-                raise CapabilityError("capability replay detected")
-            self._consumed.add(claims.capability_id)
+        _consume_once(self.consumption_store, claims, now)
         return claims
 
 
 class CapabilityBroker:
-    """Prototype external capability signer and one-use verifier.
+    """External capability signer and one-use verifier.
 
     The private key belongs outside the hostile execution environment. The
-    executor needs only the Ed25519 public key. This single-process prototype
-    keeps issuance and consumption state together until the process split.
+    executor needs only the Ed25519 public key. Production call sites must
+    inject replay state shared by every replica in the same consumption domain.
     """
 
     def __init__(
@@ -178,6 +197,7 @@ class CapabilityBroker:
         signing_key: bytes | Ed25519PrivateKey | None = None,
         key_id: str | None = None,
         ttl_seconds: float = 10.0,
+        consumption_store: CapabilityConsumptionStore | None = None,
     ):
         if isinstance(signing_key, Ed25519PrivateKey):
             self._private_key = signing_key
@@ -199,8 +219,7 @@ class CapabilityBroker:
         if not 0 < ttl_seconds <= 300:
             raise ValueError("capability TTL must be greater than zero and at most 300 seconds")
         self.ttl_seconds = ttl_seconds
-        self._consumed: set[str] = set()
-        self._lock = threading.RLock()
+        self.consumption_store = consumption_store or InMemoryCapabilityConsumptionStore()
 
     @property
     def public_key_pem(self) -> str:
@@ -276,8 +295,5 @@ class CapabilityBroker:
             policy_digest=policy_digest,
             now=now,
         )
-        with self._lock:
-            if claims.capability_id in self._consumed:
-                raise CapabilityError("capability replay detected")
-            self._consumed.add(claims.capability_id)
+        _consume_once(self.consumption_store, claims, now)
         return claims

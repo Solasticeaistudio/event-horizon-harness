@@ -15,6 +15,6 @@ The sacrificial executor, its filesystem, its process memory, its bundle constru
 
 ## Out of scope today
 
-The simulator is not hardware attestation. The local verifier and evidence recorder are not physically isolated services. Distributed atomic nonce consumption has an interface but no production Redis or transactional-database implementation. A production TPM enrollment and endorsement hierarchy is not yet delivered.
+The simulator is not hardware attestation. The local verifier and evidence recorder are not physically isolated services. The shipped SQLite nonce backend covers cooperating processes on one host and one local database, not multiple hosts or hostile database clients. A production TPM enrollment and endorsement hierarchy is not yet delivered.
 
-The shipped nonce backend performs the state transition synchronously inside one verifier process. Its records bind device, executor, session, purpose, issuance time, and expiration time. A future distributed backend must implement the same compare-and-transition as one server-side transaction; a check followed by a separate delete is not sufficient.
+The shipped nonce backend records device, executor, session, purpose, issuance time, expiration time, state, and canonical context digest. It performs `issued -> consumed` as one conditional SQLite update shared by local verifier processes. The database file and WAL must remain outside the hostile executor and protected against deletion, replacement, or rollback. A future multi-host backend must preserve the compare-and-transition as one linearizable server-side transaction; a check followed by a separate delete is not sufficient.

@@ -13,6 +13,8 @@ A valid report demonstrates or plausibly identifies a failure of a documented se
 - authority outside the deterministic static-policy ceiling;
 - capability replay, scope widening, or transfer across a bound executor or session;
 - accepted attestation without an issued one-use nonce or verified provider result;
+- replay accepted after an ordinary verifier, signer, or executor process restart when the configured durable state remains intact;
+- a way for the hostile executor to read, mutate, delete, or roll back authoritative nonce or broker replay state in the documented topology;
 - simulator evidence accepted as hardware trust;
 - static-policy or required-guardian failure that permits execution;
 - undetected alteration of the authoritative evidence chain or certificate;
