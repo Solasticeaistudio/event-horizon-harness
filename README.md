@@ -117,6 +117,8 @@ python scripts/check_repository_policy.py
 
 `npm test` currently runs 43 TypeScript tests—42 pass and the real-TPM integration test is opt-in—and 61 Python tests. For an isolated clone, run `scripts/verify-clean-install.sh` or `scripts/verify-clean-install.ps1`.
 
+The [implementation-level design defense](docs/DESIGN_DEFENSE.md) maps the central security questions to the current code and trust assumptions.
+
 ## Attack the harness
 
 Start with [RED_TEAM.md](RED_TEAM.md) and [SECURITY.md](SECURITY.md). Public testing is limited to owned synthetic environments. Useful targets include authority widening, replay, executor transfer, nonce reuse, hardware-trust forgery, evidence-chain alteration, and persistence after verified teardown.

@@ -42,6 +42,7 @@
 - Added the safe `AdversarialRunner` interface, explicit synthetic campaign manifest, strict budget schema, declared-range validation, deterministic transcript replay, and human approval gate for non-simulated adapters.
 - Added a harmless five-step scripted adversary with no URLs, IP addresses, public-network destinations, raw commands, credentials with authority, or real infrastructure connectors.
 - Added a strict paired experiment format for `baseline` and `event-horizon` modes with deterministic scripted data and explicit unmeasured fields.
+- Added an implementation-level design defense covering the authority ceiling, signed bindings, replay controls, attestation trust, TCB attacks, parser disagreement, evidence, and deployment gaps.
 
 ## Tests executed
 
@@ -93,6 +94,7 @@
 - Attestation nonce authority, persistence interface, verifier call sites, process-boundary context binding, and concurrency tests
 - Bounded synthetic adversarial-runner interface, manifest schema, safe adapter, public example, documentation, and regression tests
 - Paired experiment validator, JSON schema, explicitly scripted reference comparison, documentation, and tests
+- `docs/DESIGN_DEFENSE.md`
 - `STATUS.md`
 
 ## Commands to reproduce
@@ -106,7 +108,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Add implementation-level design-defense documentation aligned with the actual trust boundaries and limitations.
+Run final clean-checkout verification, reconcile release metadata, and prepare the v0.4.0 release checklist.
 
 ## Exact next command
 
