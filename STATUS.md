@@ -71,6 +71,7 @@
 - `python -m unittest discover -s tests -v`: 99 passed.
 - `python scripts/verify_remote_replay_interop.py`: passed against the live Python HTTP service and Node client.
 - CI-equivalent public demo, evidence-chain verification, containment-certificate verification, and selected fixed-vector verification: passed.
+- Hosted GitHub Actions run `30142202330`: Python 3.11, TypeScript/Node 20, and integration/repository-policy jobs all passed.
 - `scripts/demo.ps1`: passed with the documented success, denial, detection, and certificate summary.
 - GNU Make was not installed on the Windows release host; the documented PowerShell-equivalent demo command passed.
 - Live certificate verification: passed with Ed25519 key-identity validation.
@@ -83,7 +84,7 @@
 
 - None in the portable release suite.
 - The real Linux TPM integration test is opt-in and was not run on the Windows release host; this is a declared unverified integration target, not a passing hardware-attestation claim.
-- Hosted GitHub Actions cannot be observed until the local release commit is pushed.
+- No hosted CI failures remain. GitHub emitted maintenance-only annotations that the v4/v5 JavaScript action releases are being forced from their deprecated Node.js 20 action runtime onto Node.js 24; this did not affect the project Node.js 20 test matrix or any job result.
 
 ## Security limitations
 
