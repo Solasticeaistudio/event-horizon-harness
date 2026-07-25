@@ -1,4 +1,4 @@
-.PHONY: demo verify-denial test test-security test-policy test-property test-concurrency test-chaos test-canary test-denial-certificates test-behavioral-guardian test-decay test-adversary test-positive-controls adversary-eval literature-check test-hardware-sim test-formal
+.PHONY: demo verify-denial test test-security test-policy test-property test-concurrency test-chaos test-canary test-denial-certificates test-behavioral-guardian test-decay test-adversary test-positive-controls adversary-eval literature-check test-hardware-sim test-formal security-report
 
 test:
 	python -m unittest discover -s tests -v
@@ -46,6 +46,9 @@ test-hardware-sim:
 test-formal:
 	python scripts/check_formal_model.py
 	python -m unittest tests.test_formal_model -v
+
+security-report:
+	python scripts/generate_security_report.py
 
 demo:
 	npm run build
