@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from event_horizon.broker import capability_key_id
 from event_horizon.canonical import canonical_bytes, digest
 from event_horizon.models import ActionRequest, CapabilityClaims, IssuedCapability
+from event_horizon.trust_decay import decay_profile_for_ceiling
 from capability_fixture_support import authority_context, verify_options
 
 
@@ -43,6 +44,12 @@ def main() -> int:
     context = verify_options(authority)
     trust = authority["trust_state"]
     compiled = authority["compiled_ceiling"]
+    decay_profile = decay_profile_for_ceiling(
+        compiled,
+        version="v1",
+        issued_at_ms=ISSUED_AT,
+        expires_at_ms=ISSUED_AT + 60_000,
+    )
     claims = CapabilityClaims(
         capability_id="cap_0123456789abcdef01234567",
         issued_at=ISSUED_AT,
@@ -71,7 +78,9 @@ def main() -> int:
         guardian_state_digest=authority["guardian_state_digest"],
         decay_profile_id=compiled.decay_profile,
         decay_profile_version="v1",
-        initial_authority_digest=compiled.compiled_digest,
+        decay_profile_digest=decay_profile.profile_digest,
+        initial_authority_digest=decay_profile.initial_authority.authority_digest,
+        refresh_requirements_digest=digest(list(decay_profile.refresh_requirements)),
         operation=request["operation"],
         resource_id=request["resource_id"],
         arguments_digest=digest(request["arguments"]),

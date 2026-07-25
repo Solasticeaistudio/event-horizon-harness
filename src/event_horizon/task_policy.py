@@ -779,6 +779,23 @@ class AuthorityReduction:
             "revoke": self.revoke,
         }
 
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "AuthorityReduction":
+        fields = {
+            "source", "remove_tools", "remove_actions", "remove_resources",
+            "remove_network_destinations", "maximum_read_bytes", "maximum_write_bytes",
+            "maximum_calls", "maximum_parallelism", "maximum_duration_seconds",
+            "require_reattestation", "require_human_approval", "revoke",
+        }
+        if not isinstance(value, Mapping) or set(value) != fields:
+            raise ValidationError("authority reduction fields are invalid")
+        payload = dict(value)
+        for name in (
+            "remove_tools", "remove_actions", "remove_resources", "remove_network_destinations",
+        ):
+            payload[name] = tuple(payload[name])
+        return cls(**payload)
+
 
 @dataclass(frozen=True)
 class CompiledTaskPolicyCeiling:

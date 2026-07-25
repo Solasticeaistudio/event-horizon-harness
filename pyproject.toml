@@ -19,6 +19,7 @@ dependencies = [
 event-horizon-demo = "event_horizon.public_demo:main"
 event-horizon-process-demo = "event_horizon.process_demo:main"
 event-horizon-adversarial-demo = "event_horizon.adversarial_demo:main"
+eh-verify-denial = "event_horizon.denial_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

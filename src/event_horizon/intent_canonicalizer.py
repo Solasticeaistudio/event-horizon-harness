@@ -12,6 +12,7 @@ from .models import ActionRequest, IssuedCapability, ValidationError
 from .policy import StaticPolicy
 from .recorder import ExternalRecorder
 from .task_policy import (
+    AuthorityReduction,
     ProviderTrustState,
     TaskPolicySynthesizer,
     TrustedPolicyCompiler,
@@ -74,6 +75,9 @@ class IntentCanonicalizer:
             for guardian in self.quorum.guardians:
                 if isinstance(guardian, LineageBudgetGuardian):
                     guardian.record_denial(request.session_id)
+                record_outcome = getattr(guardian, "record_outcome", None)
+                if callable(record_outcome):
+                    record_outcome(request, "denied", now_ms=int(time.time() * 1000))
             self.recorder.append("request.denied", {"request_id": request.request_id})
             raise AuthorizationDenied("guardian veto")
 
@@ -96,6 +100,11 @@ class IntentCanonicalizer:
         compiled_ceiling = self.policy_compiler.compile(
             task,
             candidate,
+            guardian_reductions=tuple(
+                AuthorityReduction.from_dict(decision.evidence["authority_reduction"])
+                for decision in decisions
+                if "authority_reduction" in decision.evidence
+            ),
             now_ms=int(time.time() * 1000),
         )
         policy_decision = next(d for d in decisions if d.guardian == STATIC_POLICY_GUARDIAN)
@@ -136,4 +145,8 @@ class IntentCanonicalizer:
             "compiled_ceiling_digest": capability.claims.compiled_ceiling_digest,
             "provider_trust": capability.claims.provider_attested_trust,
         })
+        for guardian in self.quorum.guardians:
+            record_outcome = getattr(guardian, "record_outcome", None)
+            if callable(record_outcome):
+                record_outcome(request, "allowed", now_ms=int(time.time() * 1000))
         return request, capability, attestation_result

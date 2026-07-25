@@ -8,7 +8,8 @@ from .attestation import DevelopmentAttestationProvider
 from .broker import CapabilityBroker
 from .canonical import digest
 from .executor import SacrificialExecutor
-from .guardians import AttestationGuardian, GuardianQuorum, LineageBudgetGuardian, PolicyGuardian, SequenceGuardian
+from .behavioral_guardian import BehavioralGuardian, InMemoryBehavioralStateStore
+from .guardians import AttestationGuardian, GuardianQuorum, LineageBudgetGuardian, PolicyGuardian
 from .intent_canonicalizer import IntentCanonicalizer
 from .policy import OperationRule, StaticPolicy
 from .recorder import ExternalRecorder
@@ -50,7 +51,7 @@ def build_local_harness(workdir: str | Path, *, ttl_seconds: float = 10.0):
         PolicyGuardian(policy),
         AttestationGuardian(attestation_provider),
         LineageBudgetGuardian(max_requests_per_session=12, max_denials_per_session=5),
-        SequenceGuardian(),
+        BehavioralGuardian(InMemoryBehavioralStateStore()),
     ]
     quorum = GuardianQuorum(guardians)
     tool_actions = {

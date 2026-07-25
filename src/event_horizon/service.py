@@ -13,13 +13,14 @@ from .attestation import DevelopmentAttestationProvider
 from .broker import CapabilityBroker, CapabilityError, CapabilityVerifier
 from .canonical import digest
 from .certificate import ContainmentCertificateBuilder
+from .behavioral_guardian import BehavioralGuardian, SqliteBehavioralStateStore
 from .component_ids import (
     EXECUTOR_ATTESTATION_GUARDIAN,
     REQUIRED_GUARDIANS,
     STATIC_POLICY_GUARDIAN,
 )
 from .executor import SacrificialExecutor
-from .guardians import LineageBudgetGuardian, PolicyGuardian, SequenceGuardian
+from .guardians import LineageBudgetGuardian, PolicyGuardian
 from .models import ActionRequest, GuardianDecision, IssuedCapability, ValidationError
 from .policy import OperationRule, StaticPolicy
 from .protocol import MessageSpec, ProtocolError, StrictRpcServer
@@ -31,12 +32,14 @@ from .protected_boundary import (
 from .recorder import ExternalRecorder
 from .replay_state import SqliteCapabilityConsumptionStore
 from .task_policy import (
+    AuthorityReduction,
     ProviderTrustState,
     TaskPolicySynthesizer,
     TrustedPolicyCompiler,
     default_policy_templates,
     task_description_for_request,
 )
+from .trust_decay import DecayEngine, SqliteDecayStateStore
 
 
 def _exact(value: Any, fields: set[str], name: str) -> dict[str, Any]:
@@ -197,7 +200,10 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
     config = _load_config(
         config_path,
         'guardians',
-        {'policy', 'max_requests_per_session', 'max_denials_per_session', 'inject_permissive_guardian'},
+        {
+            'policy', 'max_requests_per_session', 'max_denials_per_session',
+            'inject_permissive_guardian', 'behavioral_state_database',
+        },
     )
     policy = _policy(config['policy'])
     policy_guardian = PolicyGuardian(policy)
@@ -205,7 +211,9 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
         max_requests_per_session=int(config['max_requests_per_session']),
         max_denials_per_session=int(config['max_denials_per_session']),
     )
-    sequence = SequenceGuardian()
+    behavioral = BehavioralGuardian(
+        SqliteBehavioralStateStore(config['behavioral_state_database'])
+    )
     inject_permissive = config['inject_permissive_guardian'] is True
 
     def evaluate(body: dict[str, Any]) -> Mapping[str, Any]:
@@ -243,7 +251,7 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
             policy_guardian.evaluate(request),
             attestation_decision,
             budget.evaluate(request),
-            sequence.evaluate(request),
+            behavioral.evaluate(request),
         ]
         if inject_permissive:
             decisions.append(GuardianDecision(
@@ -251,6 +259,11 @@ def _guardian_specs(config_path: Path) -> dict[str, MessageSpec]:
                 request_digest=request.request_digest,
             ))
         allowed = all(decision.allowed for decision in decisions)
+        behavioral.record_outcome(
+            request,
+            'allowed' if allowed else 'denied',
+            now_ms=time.time_ns() // 1_000_000,
+        )
         if not allowed:
             budget.record_denial(request.session_id)
         result = {
@@ -323,7 +336,7 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
         'signer',
         {
             'ttl_seconds', 'signing_key_path', 'replay_database',
-            'replay_namespace', 'consumption_domain', 'policy',
+            'replay_namespace', 'consumption_domain', 'decay_database', 'policy',
             *PROTECTED_CONFIG_FIELDS,
         },
     )
@@ -346,6 +359,7 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
         signing_seed,
         ttl_seconds=float(config['ttl_seconds']),
         consumption_store=consumption_store,
+        decay_engine=DecayEngine(SqliteDecayStateStore(config['decay_database'])),
     )
 
     def issue(body: dict[str, Any]) -> Mapping[str, Any]:
@@ -393,6 +407,11 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
         compiled_ceiling = compiler.compile(
             task,
             candidate,
+            guardian_reductions=tuple(
+                AuthorityReduction.from_dict(item['evidence']['authority_reduction'])
+                for item in guardians['decisions']
+                if 'authority_reduction' in item['evidence']
+            ),
             now_ms=int(time.time() * 1000),
         )
         capability = broker.issue(
@@ -456,7 +475,7 @@ def _executor_specs(config_path: Path) -> dict[str, MessageSpec]:
         {
             'executor_id', 'device_id', 'measurement', 'verifier_policy_digest',
             'policy_digest', 'signer_public_key', 'signer_key_id', 'objects',
-            'replay_database', 'replay_namespace', 'consumption_domain',
+            'replay_database', 'replay_namespace', 'consumption_domain', 'decay_database',
         },
     )
     if not isinstance(config['objects'], dict):
@@ -470,6 +489,7 @@ def _executor_specs(config_path: Path) -> dict[str, MessageSpec]:
         config['signer_public_key'],
         config['signer_key_id'],
         consumption_store,
+        DecayEngine(SqliteDecayStateStore(config['decay_database'])),
     )
     executor = SacrificialExecutor(
         executor_id=config['executor_id'],

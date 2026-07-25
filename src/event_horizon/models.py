@@ -162,7 +162,9 @@ class CapabilityClaims:
     guardian_state_digest: str
     decay_profile_id: str
     decay_profile_version: str
+    decay_profile_digest: str
     initial_authority_digest: str
+    refresh_requirements_digest: str
     operation: str
     resource_id: str
     arguments_digest: str
@@ -180,7 +182,8 @@ class CapabilityClaims:
         'provider_attested_trust', 'effective_trust', 'signed_trust_constraint',
         'attestation_method', 'attestation_key_id', 'compiled_ceiling',
         'compiled_ceiling_digest', 'guardian_state_digest', 'decay_profile_id',
-        'decay_profile_version', 'initial_authority_digest', 'operation',
+        'decay_profile_version', 'decay_profile_digest', 'initial_authority_digest',
+        'refresh_requirements_digest', 'operation',
         'resource_id', 'arguments_digest', 'request_digest', 'max_output_bytes',
         'invocation_limit', 'policy_digest', 'signer_key_id',
     })
@@ -197,8 +200,9 @@ class CapabilityClaims:
         for name in (
             "executor_measurement", "attestation_digest", "attestation_bundle_digest",
             "verifier_policy_digest", "task_fingerprint", "compiled_ceiling_digest",
-            "guardian_state_digest", "initial_authority_digest", "arguments_digest",
-            "request_digest", "policy_digest",
+            "guardian_state_digest", "decay_profile_digest", "initial_authority_digest",
+            "refresh_requirements_digest", "arguments_digest", "request_digest",
+            "policy_digest",
         ):
             if not isinstance(getattr(self, name), str) or not _DIGEST_RE.fullmatch(getattr(self, name)):
                 raise ValidationError(f"{name} must be a lowercase SHA-256 digest")

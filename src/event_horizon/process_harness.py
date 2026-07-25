@@ -314,6 +314,9 @@ class ProcessSeparatedHarness:
                     'max_requests_per_session': 12,
                     'max_denials_per_session': 5,
                     'inject_permissive_guardian': self.inject_permissive_guardian,
+                    'behavioral_state_database': str(
+                        self.trusted_dir / 'behavioral-state.sqlite3'
+                    ),
                 },
             )
             signer = self._start_role(
@@ -324,6 +327,7 @@ class ProcessSeparatedHarness:
                     'replay_database': str(self.authority_replay_path),
                     'replay_namespace': replay_namespace,
                     'consumption_domain': 'broker',
+                    'decay_database': str(self.trusted_dir / 'decay-state.sqlite3'),
                     'policy': policy,
                     **protected_config('signer', self.authority_replay_path),
                 },
@@ -351,6 +355,9 @@ class ProcessSeparatedHarness:
                     'replay_database': str(self.executor_replay_path),
                     'replay_namespace': replay_namespace,
                     'consumption_domain': 'executor:exec-1',
+                    'decay_database': str(
+                        self.workdir / 'executor-state' / 'decay-state.sqlite3'
+                    ),
                     'objects': {
                         'target-source': {'name': 'synthetic-target', 'content': 'safe fixture'},
                         'public-evidence': {'finding': 'contained'},

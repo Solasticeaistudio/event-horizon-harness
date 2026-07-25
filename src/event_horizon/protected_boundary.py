@@ -11,7 +11,7 @@ import stat
 import threading
 import time
 from pathlib import Path
-from typing import Callable, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
 from .broker import CapabilityBroker, CapabilityVerifier
+from .canary import CanaryCapability, CanaryError, CanaryVerifier
 from .models import ActionRequest, ExecutionResult, IssuedCapability
 from .recorder import ExternalRecorder
 
@@ -20,16 +21,21 @@ class SacrificialExecutor:
     recorder: ExternalRecorder
     tenant: str = "default"
     environment: str = "synthetic"
+    canary_verifier: CanaryVerifier | None = None
     objects: dict[str, Any] = field(default_factory=dict)
     compute_profiles: dict[str, Callable[[dict[str, Any]], Any]] = field(default_factory=dict)
 
     def execute(
         self,
         request: ActionRequest,
-        capability: IssuedCapability,
+        capability: IssuedCapability | CanaryCapability,
         attestation: Mapping[str, Any],
     ) -> ExecutionResult:
         try:
+            if isinstance(capability, CanaryCapability):
+                if self.canary_verifier is None:
+                    raise CanaryError("canary verification boundary is unavailable")
+                self.canary_verifier.redeem(capability, request)
             claims = self.broker.verify_and_consume(
                 capability,
                 request,

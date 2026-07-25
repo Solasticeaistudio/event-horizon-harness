@@ -20,6 +20,7 @@ from .task_policy import (
     ProviderTrustState,
     TRUST_ORDER,
 )
+from .trust_decay import DecayEngine, DecayError, decay_profile_for_ceiling
 
 
 class CapabilityError(PermissionError):
@@ -113,6 +114,12 @@ def _verified_claims(
             requested_trust=claims.requested_trust,
         )
         compiled = CompiledTaskPolicyCeiling.from_dict(claims.compiled_ceiling)
+        decay_profile = decay_profile_for_ceiling(
+            compiled,
+            version=claims.decay_profile_version,
+            issued_at_ms=claims.issued_at,
+            expires_at_ms=claims.expires_at,
+        )
     except (TypeError, ValueError) as exc:
         raise CapabilityError(f"current authority context is invalid: {exc}") from exc
     measurements = attestation.get("measurements")
@@ -178,9 +185,14 @@ def _verified_claims(
             compiled.compiled_digest,
         ),
         "decay_profile_id": (claims.decay_profile_id, compiled.decay_profile),
+        "decay_profile_digest": (claims.decay_profile_digest, decay_profile.profile_digest),
         "initial_authority_digest": (
             claims.initial_authority_digest,
-            compiled.compiled_digest,
+            decay_profile.initial_authority.authority_digest,
+        ),
+        "refresh_requirements_digest": (
+            claims.refresh_requirements_digest,
+            digest(list(decay_profile.refresh_requirements)),
         ),
         "compiled_subject": (claims.agent_id, compiled.subject_id),
         "compiled_workload": (claims.executor_id, compiled.workload_identity),
@@ -239,6 +251,7 @@ class CapabilityVerifier:
         public_key: str | bytes | Ed25519PublicKey,
         key_id: str,
         consumption_store: CapabilityConsumptionStore | None = None,
+        decay_engine: DecayEngine | None = None,
     ):
         if isinstance(public_key, Ed25519PublicKey):
             loaded = public_key
@@ -253,6 +266,7 @@ class CapabilityVerifier:
         self._public_key = loaded
         self.key_id = actual_key_id
         self.consumption_store = consumption_store or InMemoryCapabilityConsumptionStore()
+        self.decay_engine = decay_engine or DecayEngine()
 
     def verify_and_consume(
         self,
@@ -282,6 +296,21 @@ class CapabilityVerifier:
             now=now,
         )
         _consume_once(self.consumption_store, claims, now)
+        try:
+            self.decay_engine.authorize(
+                claims.capability_id,
+                decay_profile_for_ceiling(
+                    CompiledTaskPolicyCeiling.from_dict(claims.compiled_ceiling),
+                    version=claims.decay_profile_version,
+                    issued_at_ms=claims.issued_at,
+                    expires_at_ms=claims.expires_at,
+                ),
+                request,
+                issued_at_ms=claims.issued_at,
+                now_ms=_now_ms(now),
+            )
+        except (TypeError, ValueError, DecayError) as exc:
+            raise CapabilityError(f"current decay authority denied redemption: {exc}") from exc
         return claims
 
 
@@ -299,6 +328,7 @@ class CapabilityBroker:
         key_id: str | None = None,
         ttl_seconds: float = 10.0,
         consumption_store: CapabilityConsumptionStore | None = None,
+        decay_engine: DecayEngine | None = None,
     ):
         if isinstance(signing_key, Ed25519PrivateKey):
             self._private_key = signing_key
@@ -321,6 +351,7 @@ class CapabilityBroker:
             raise ValueError("capability TTL must be greater than zero and at most 300 seconds")
         self.ttl_seconds = ttl_seconds
         self.consumption_store = consumption_store or InMemoryCapabilityConsumptionStore()
+        self.decay_engine = decay_engine or DecayEngine()
 
     @property
     def public_key_pem(self) -> str:
@@ -375,10 +406,20 @@ class CapabilityBroker:
         request_payload = request.canonical_payload()
         request_digest = digest(request_payload)
         arguments_digest = digest(request_payload["arguments"])
+        expires_at = min(issued_at + ttl_ms, compiled_ceiling.expires_at_ms)
+        try:
+            decay_profile = decay_profile_for_ceiling(
+                compiled_ceiling,
+                version=decay_profile_version,
+                issued_at_ms=issued_at,
+                expires_at_ms=expires_at,
+            )
+        except (TypeError, ValueError) as exc:
+            raise CapabilityError(f"decay profile is invalid: {exc}") from exc
         claims = CapabilityClaims(
             capability_id=f"cap_{secrets.token_hex(12)}",
             issued_at=issued_at,
-            expires_at=min(issued_at + ttl_ms, compiled_ceiling.expires_at_ms),
+            expires_at=expires_at,
             session_id=request.session_id,
             agent_id=request.agent_id,
             executor_id=request.executor_id,
@@ -403,7 +444,9 @@ class CapabilityBroker:
             guardian_state_digest=guardian_state_digest,
             decay_profile_id=compiled_ceiling.decay_profile,
             decay_profile_version=decay_profile_version,
-            initial_authority_digest=compiled_ceiling.compiled_digest,
+            decay_profile_digest=decay_profile.profile_digest,
+            initial_authority_digest=decay_profile.initial_authority.authority_digest,
+            refresh_requirements_digest=digest(list(decay_profile.refresh_requirements)),
             operation=request.operation,
             resource_id=request.resource_id,
             arguments_digest=arguments_digest,
@@ -446,4 +489,19 @@ class CapabilityBroker:
             now=now,
         )
         _consume_once(self.consumption_store, claims, now)
+        try:
+            self.decay_engine.authorize(
+                claims.capability_id,
+                decay_profile_for_ceiling(
+                    CompiledTaskPolicyCeiling.from_dict(claims.compiled_ceiling),
+                    version=claims.decay_profile_version,
+                    issued_at_ms=claims.issued_at,
+                    expires_at_ms=claims.expires_at,
+                ),
+                request,
+                issued_at_ms=claims.issued_at,
+                now_ms=_now_ms(now),
+            )
+        except (TypeError, ValueError, DecayError) as exc:
+            raise CapabilityError(f"current decay authority denied redemption: {exc}") from exc
         return claims

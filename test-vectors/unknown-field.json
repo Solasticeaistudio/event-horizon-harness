@@ -66,6 +66,7 @@
         "workload_identity": "exec-1"
       },
       "compiled_ceiling_digest": "da97e512a10d1f524d1696faed6a2698c11c0f10bd81b9971443159e0ffcc925",
+      "decay_profile_digest": "3540a620c63a5ce39298c2b51df81f660ab5c413fb0db1e1edab39f074e8dc6b",
       "decay_profile_id": "short-lived-default",
       "decay_profile_version": "v1",
       "device_id": "exec-1",
@@ -75,13 +76,14 @@
       "executor_measurement": "1111111111111111111111111111111111111111111111111111111111111111",
       "expires_at": 1700000060000,
       "guardian_state_digest": "5f800d7555c1b7b273215ce522129f6fbcf4fa9907e4b62fe6f703b96632aed4",
-      "initial_authority_digest": "da97e512a10d1f524d1696faed6a2698c11c0f10bd81b9971443159e0ffcc925",
+      "initial_authority_digest": "c699ae8175a28e939cf04de48a095c941eb7423149136274ee809b1e974d577e",
       "invocation_limit": 1,
       "issued_at": 1700000000000,
       "max_output_bytes": 4096,
       "operation": "object.read",
       "policy_digest": "07e55b9f93b521e9b0d980a9653cb452f1874b76eedd28224db345c06f666b3d",
       "provider_attested_trust": "simulated",
+      "refresh_requirements_digest": "2690269372cd671d3c94c8a9640dca043e3b5eb9052b58aa03500f539ac5b4ac",
       "request_digest": "0b48d7c702c14da5842982cf3990ef35faed67afaaed3cc8948703c40c316c93",
       "requested_trust": "simulated",
       "resource_id": "target-source",
@@ -94,7 +96,7 @@
       "verifier_policy_digest": "78b2cb43894319a78e6a2d3292e36d7ddef3c582e11cc33a00b68f2affee14f5"
     },
     "key_id": "ed25519:05ec121c848971ec91ef72e054869e1d",
-    "signature": "t88kH42vFAH3UMt_YWvx_hJzyNhikPs3znY9WY6Zh11b2H7NnrsEqWpf2Zb2GAQyMm_c-KpxwIWRPze-iPvtAA",
+    "signature": "p1zsrN9u6BedHMWkBQJriehiAgs15g1I2ZNaB6Loa4KoKHcNTfQUjEY3eIMfeuRGC8ZKA8BiABjb2pnbV12pCw",
     "unknown": true
   },
   "context": {

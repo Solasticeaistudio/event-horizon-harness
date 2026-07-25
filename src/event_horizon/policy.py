@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Mapping
 
 from .canonical import digest
 from .component_ids import STATIC_POLICY_GUARDIAN

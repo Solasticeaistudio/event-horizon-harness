@@ -10,7 +10,6 @@ from event_horizon.adversarial_runner import (
     CampaignManifest,
     CampaignValidationError,
     HarmlessSyntheticAdapter,
-    Observation,
     SAFE_ACTIONS,
 )
 
