@@ -121,6 +121,8 @@ python scripts/check_repository_policy.py
 
 Start with [RED_TEAM.md](RED_TEAM.md) and [SECURITY.md](SECURITY.md). Public testing is limited to owned synthetic environments. Useful targets include authority widening, replay, executor transfer, nonce reuse, hardware-trust forgery, evidence-chain alteration, and persistence after verified teardown.
 
+The future campaign-engine boundary is intentionally limited to the [bounded synthetic adversarial runner](docs/ADVERSARIAL_RUNNER.md); no raw offensive platform or real-infrastructure connector is included.
+
 The fixed capability inputs are in [test-vectors](test-vectors/README.md):
 
 ```bash

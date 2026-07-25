@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solsticestudio.ai/event-horizon/adversarial-campaign.v1.schema.json",
+  "title": "Bounded synthetic adversarial campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "campaign_id", "range_id", "seed", "objective", "limits", "adapter"],
+  "properties": {
+    "schema": {"const": "event-horizon.synthetic-campaign.v1"},
+    "campaign_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "range_id": {"type": "string", "pattern": "^synthetic-range/[a-z0-9][a-z0-9-]{0,63}$"},
+    "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+    "adapter": {"enum": ["simulated", "approved-adapter"]},
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objective_id", "description", "success_condition"],
+      "properties": {
+        "objective_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "description": {"type": "string", "minLength": 1, "maxLength": 512},
+        "success_condition": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maximum_turns", "maximum_commands", "maximum_wall_seconds", "maximum_bytes", "maximum_concurrency"],
+      "properties": {
+        "maximum_turns": {"type": "integer", "minimum": 1, "maximum": 100},
+        "maximum_commands": {"type": "integer", "minimum": 1, "maximum": 100},
+        "maximum_wall_seconds": {"type": "integer", "minimum": 1, "maximum": 300},
+        "maximum_bytes": {"type": "integer", "minimum": 1, "maximum": 1048576},
+        "maximum_concurrency": {"type": "integer", "minimum": 1, "maximum": 4}
+      }
+    }
+  }
+}

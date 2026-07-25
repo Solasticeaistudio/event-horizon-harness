@@ -39,6 +39,8 @@
 - The demo now exercises fresh simulator attestation, exact capability use, replay, argument and executor transfer, prohibited egress, evidence tampering, verified teardown, and an independently verified live certificate.
 - Added a deterministic normalized reference result while keeping fresh per-run keys, nonces, timestamps, and digests out of version control.
 - Replaced the prototype README with a concise technical-review entry point, actual demo results, measured claim boundaries, functional architecture, verification commands, and CI badge.
+- Added the safe `AdversarialRunner` interface, explicit synthetic campaign manifest, strict budget schema, declared-range validation, deterministic transcript replay, and human approval gate for non-simulated adapters.
+- Added a harmless five-step scripted adversary with no URLs, IP addresses, public-network destinations, raw commands, credentials with authority, or real infrastructure connectors.
 
 ## Tests executed
 
@@ -55,6 +57,7 @@
 - Capability hardening regression: 51 Python tests passed, including all 8 fixed public vectors.
 - Guardian compromise regression: 60 Python tests passed.
 - Public-demo regression: 61 Python tests passed; the PowerShell single-command demo and independent live-certificate verification passed.
+- Bounded-runner regression: 66 Python tests passed, including deterministic replay, range/destination rejection, budget exhaustion, and human-approval gating.
 - CI-equivalent integration run: process-separated demo, generated evidence chain, generated certificate, and selected fixed vectors passed.
 - Repository lint/policy checks: 38 tracked Python files and 138 tracked repository paths passed.
 
@@ -86,6 +89,7 @@
 - Functional component IDs, intent canonicalizer, scripted adversarial runner, public architecture, and integration output
 - Attestation provider-verifier interfaces, simulator and TPM verifier implementations, Linux TPM bundle signing, and adversarial dispatch tests
 - Attestation nonce authority, persistence interface, verifier call sites, process-boundary context binding, and concurrency tests
+- Bounded synthetic adversarial-runner interface, manifest schema, safe adapter, public example, documentation, and regression tests
 - `STATUS.md`
 
 ## Commands to reproduce
@@ -99,7 +103,7 @@ python scripts/verify_certificate.py examples/reference-run/containment-certific
 
 ## Next engineering milestone
 
-Add the bounded synthetic adversarial-runner interface and harmless scripted campaign manifest.
+Add the baseline-versus-contained experiment schema and accurately labeled scripted reference comparison.
 
 ## Exact next command
 

@@ -1,0 +1,19 @@
+{
+  "adapter": "simulated",
+  "campaign_id": "public-harmless-adversary-v1",
+  "limits": {
+    "maximum_bytes": 65536,
+    "maximum_commands": 5,
+    "maximum_concurrency": 1,
+    "maximum_turns": 5,
+    "maximum_wall_seconds": 30
+  },
+  "objective": {
+    "description": "Exercise authority boundaries in an owned synthetic fixture",
+    "objective_id": "authority-boundary-regression",
+    "success_condition": "Every prohibited synthetic transition is denied or detected"
+  },
+  "range_id": "synthetic-range/public-fixture",
+  "schema": "event-horizon.synthetic-campaign.v1",
+  "seed": 4
+}
