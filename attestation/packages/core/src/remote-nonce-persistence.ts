@@ -60,6 +60,7 @@ const DIGEST = /^[0-9a-f]{64}$/;
 const KEY_ID = /^ed25519:[0-9a-f]{32}$/;
 const NONCE = /^[A-Za-z0-9_-]{43}$/;
 const SIGNATURE = /^[A-Za-z0-9_-]{86}$/;
+export const MAX_REMOTE_REPLAY_RESPONSE_BYTES = 65_536;
 const TRANSITION_STATUSES = new Set<NonceTransitionStatus>([
   'consumed-now',
   'unknown',
@@ -149,6 +150,39 @@ function requireDigest(value: unknown, label: string): string {
     throw new RemoteReplayProtocolError(`${label} is invalid`);
   }
   return value;
+}
+
+interface CheckpointState {
+  checkpoint: number;
+  checkpointDigest: string;
+}
+
+function normalizeCheckpointState(
+  serviceId: string,
+  epoch: number,
+  checkpoint: unknown,
+  checkpointDigest: unknown,
+  label: string,
+): CheckpointState {
+  const normalizedCheckpoint = nonNegativeInteger(checkpoint, `${label} checkpoint`);
+  const expectedGenesis = remoteReplayGenesisDigest(serviceId, epoch);
+  if (normalizedCheckpoint === 0) {
+    if (checkpointDigest === undefined) {
+      return { checkpoint: 0, checkpointDigest: expectedGenesis };
+    }
+    const suppliedDigest = requireDigest(checkpointDigest, `${label} checkpoint digest`);
+    if (suppliedDigest !== expectedGenesis) {
+      throw new RemoteReplayProtocolError(`${label} checkpoint zero must use the epoch genesis digest`);
+    }
+    return { checkpoint: 0, checkpointDigest: suppliedDigest };
+  }
+  if (checkpointDigest === undefined) {
+    throw new RemoteReplayProtocolError(`${label} restored checkpoint requires an explicit digest`);
+  }
+  return {
+    checkpoint: normalizedCheckpoint,
+    checkpointDigest: requireDigest(checkpointDigest, `${label} checkpoint digest`),
+  };
 }
 
 function canonicalNonce(value: unknown): value is string {
@@ -249,10 +283,15 @@ export class SignedReplayClient {
     this.serverKeyId = keyIdFromPublicKey(this.serverPublicKey);
     this.serviceId = options.serviceId;
     this.epoch = positiveInteger(options.epoch, 'remote replay epoch');
-    this.checkpoint = nonNegativeInteger(options.checkpoint ?? 0, 'remote replay checkpoint');
-    this.checkpointDigest = options.checkpointDigest
-      ?? remoteReplayGenesisDigest(this.serviceId, this.epoch);
-    requireDigest(this.checkpointDigest, 'remote replay checkpoint digest');
+    const checkpointState = normalizeCheckpointState(
+      this.serviceId,
+      this.epoch,
+      options.checkpoint ?? 0,
+      options.checkpointDigest,
+      'remote replay',
+    );
+    this.checkpoint = checkpointState.checkpoint;
+    this.checkpointDigest = checkpointState.checkpointDigest;
     this.transport = options.transport;
     this.lifetimeMs = options.lifetimeMs ?? 5_000;
     if (!Number.isSafeInteger(this.lifetimeMs) || this.lifetimeMs <= 0 || this.lifetimeMs > 30_000) {
@@ -262,16 +301,13 @@ export class SignedReplayClient {
   }
 
   async call(operation: ReplayOperation, partition: string, payload: JsonObject): Promise<JsonObject> {
-    let release!: () => void;
-    const previous = this.queue;
-    this.queue = new Promise<void>((resolve) => { release = resolve; });
-    await previous;
-    try {
-      if (!['nonce-create', 'nonce-consume', 'nonce-inspect'].includes(operation)) {
-        throw new RemoteReplayProtocolError('remote replay operation is unsupported');
-      }
-      if (!SCOPE.test(partition)) throw new RemoteReplayProtocolError('remote replay partition is invalid');
-      strictJson(payload);
+    if (!['nonce-create', 'nonce-consume', 'nonce-inspect'].includes(operation)) {
+      throw new RemoteReplayProtocolError('remote replay operation is unsupported');
+    }
+    if (!SCOPE.test(partition)) throw new RemoteReplayProtocolError('remote replay partition is invalid');
+    strictJson(payload);
+    const payloadSnapshot = JSON.parse(canonicalize(payload)) as JsonObject;
+    return this.enqueue(async () => {
       const issuedAt = this.now();
       if (!Number.isSafeInteger(issuedAt) || issuedAt < 0) {
         throw new RemoteReplayProtocolError('remote replay clock is invalid');
@@ -289,7 +325,7 @@ export class SignedReplayClient {
         minimum_checkpoint_digest: this.checkpointDigest,
         operation,
         partition,
-        payload,
+        payload: payloadSnapshot,
       };
       const request: JsonObject = {
         ...unsigned,
@@ -312,40 +348,64 @@ export class SignedReplayClient {
         this.checkpointDigest = verified.checkpoint_digest as string;
       }
       return verified;
-    } finally {
-      release();
-    }
+    });
   }
 
-  adoptEpoch(
+  async adoptEpoch(
     epoch: number,
     checkpoint: number,
-    checkpointDigest: string,
+    checkpointDigest?: string,
     serverPublicKeyPem?: string,
     transport?: ReplayTransport,
-  ): void {
-    positiveInteger(epoch, 'promoted replay epoch');
-    nonNegativeInteger(checkpoint, 'promoted replay checkpoint');
-    requireDigest(checkpointDigest, 'promoted replay checkpoint digest');
-    if (epoch <= this.epoch) throw new RemoteReplayProtocolError('promoted replay epoch must increase');
-    if (checkpoint < this.checkpoint) {
-      throw new RemoteReplayProtocolError('promoted replay service checkpoint regresses');
-    }
-    if (checkpoint === this.checkpoint && checkpointDigest !== this.checkpointDigest) {
-      throw new RemoteReplayProtocolError('promoted replay service forks known history');
-    }
-    if (serverPublicKeyPem !== undefined) {
-      const promotedKey = importPublicKeyPem(serverPublicKeyPem);
-      if (promotedKey.asymmetricKeyType !== 'ed25519') {
-        throw new TypeError('promoted remote replay key must be Ed25519');
+  ): Promise<void> {
+    return this.enqueue(async () => {
+      const promotedEpoch = positiveInteger(epoch, 'promoted replay epoch');
+      const checkpointState = normalizeCheckpointState(
+        this.serviceId,
+        promotedEpoch,
+        checkpoint,
+        checkpointDigest,
+        'promoted replay',
+      );
+      let promotedPublicKey = this.serverPublicKey;
+      let promotedServerKeyId = this.serverKeyId;
+      if (serverPublicKeyPem !== undefined) {
+        promotedPublicKey = importPublicKeyPem(serverPublicKeyPem);
+        if (promotedPublicKey.asymmetricKeyType !== 'ed25519') {
+          throw new TypeError('promoted remote replay key must be Ed25519');
+        }
+        promotedServerKeyId = keyIdFromPublicKey(promotedPublicKey);
       }
-      this.serverPublicKey = promotedKey;
-      this.serverKeyId = keyIdFromPublicKey(this.serverPublicKey);
-    }
-    if (transport !== undefined) this.transport = transport;
-    this.epoch = epoch;
-    this.checkpoint = checkpoint;
-    this.checkpointDigest = checkpointDigest;
+      if (transport !== undefined && typeof transport !== 'function') {
+        throw new TypeError('promoted remote replay transport must be a function');
+      }
+      if (promotedEpoch <= this.epoch) {
+        throw new RemoteReplayProtocolError('promoted replay epoch must increase');
+      }
+      if (checkpointState.checkpoint < this.checkpoint) {
+        throw new RemoteReplayProtocolError('promoted replay service checkpoint regresses');
+      }
+      if (
+        checkpointState.checkpoint > 0
+        && checkpointState.checkpoint === this.checkpoint
+        && checkpointState.checkpointDigest !== this.checkpointDigest
+      ) {
+        throw new RemoteReplayProtocolError('promoted replay service forks known history');
+      }
+
+      this.serverPublicKey = promotedPublicKey;
+      this.serverKeyId = promotedServerKeyId;
+      if (transport !== undefined) this.transport = transport;
+      this.epoch = promotedEpoch;
+      this.checkpoint = checkpointState.checkpoint;
+      this.checkpointDigest = checkpointState.checkpointDigest;
+    });
+  }
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.queue.then(operation);
+    this.queue = result.then(() => undefined, () => undefined);
+    return result;
   }
 
   private verifyResponse(request: JsonObject, response: unknown): JsonObject {
@@ -460,11 +520,11 @@ export function createHttpReplayTransport(url: string, timeoutMs = 2_000): Repla
       body: canonicalize(request),
       signal: AbortSignal.timeout(timeoutMs),
     });
-    if (!response.ok) throw new RemoteReplayUnavailableError('remote replay service returned an error');
-    const text = await response.text();
-    if (Buffer.byteLength(text, 'utf8') > 65_536) {
-      throw new RemoteReplayProtocolError('remote replay response is too large');
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new RemoteReplayUnavailableError('remote replay service returned an error');
     }
+    const text = await readBoundedResponseText(response);
     let value: unknown;
     try {
       value = JSON.parse(text);
@@ -478,4 +538,61 @@ export function createHttpReplayTransport(url: string, timeoutMs = 2_000): Repla
     if (!isObject(value)) throw new RemoteReplayProtocolError('remote replay response is not an object');
     return value;
   };
+}
+
+export class RemoteReplayResponseTooLargeError extends RemoteReplayProtocolError {
+  constructor(message = `remote replay response exceeds ${MAX_REMOTE_REPLAY_RESPONSE_BYTES} bytes`) {
+    super(message);
+    this.name = 'RemoteReplayResponseTooLargeError';
+  }
+}
+
+async function readBoundedResponseText(response: Response): Promise<string> {
+  const declaredLength = response.headers.get('content-length')?.trim();
+  if (declaredLength !== undefined && /^(?:0|[1-9][0-9]*)$/.test(declaredLength)) {
+    if (BigInt(declaredLength) > BigInt(MAX_REMOTE_REPLAY_RESPONSE_BYTES)) {
+      await response.body?.cancel().catch(() => undefined);
+      throw new RemoteReplayResponseTooLargeError();
+    }
+  }
+  if (!response.body) {
+    throw new RemoteReplayProtocolError('remote replay response body is unavailable');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let bytesRead = 0;
+  let text = '';
+  let cancelled = false;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytesRead += value.byteLength;
+      if (bytesRead > MAX_REMOTE_REPLAY_RESPONSE_BYTES) {
+        cancelled = true;
+        await reader.cancel(new RemoteReplayResponseTooLargeError()).catch(() => undefined);
+        throw new RemoteReplayResponseTooLargeError();
+      }
+      try {
+        text += decoder.decode(value, { stream: true });
+      } catch (error) {
+        throw new RemoteReplayProtocolError(`remote replay response is not valid UTF-8: ${String(error)}`);
+      }
+    }
+    try {
+      text += decoder.decode();
+    } catch (error) {
+      throw new RemoteReplayProtocolError(`remote replay response is not valid UTF-8: ${String(error)}`);
+    }
+    return text;
+  } catch (error) {
+    if (!cancelled) {
+      await reader.cancel(error).catch(() => undefined);
+    }
+    if (error instanceof RemoteReplayProtocolError) throw error;
+    throw new RemoteReplayUnavailableError('remote replay response stream failed closed', { cause: error });
+  } finally {
+    reader.releaseLock();
+  }
 }

@@ -55,19 +55,28 @@
 - Made the Executor Attestation nonce persistence boundary, nonce authority, verifier, SDK, service, bridge, and tests awaitable; added a fail-closed TypeScript remote nonce adapter and HTTP client.
 - Added 48-way remote redemption contention, client-policy isolation, collision, nonce-context, request forgery, unknown-field, response forgery/swapping, rollback, fork-ahead, failover with key rotation, stale-primary, unsafe-promotion, outage, and HTTP conformance tests.
 - Added a live Python-service/Node-client interoperability check covering canonical JSON, Ed25519 key IDs and signatures, nonce transitions, response binding, and checkpoints.
+- Fixed the isolated Python CI job by installing and building the three Executor Attestation workspaces required by the Python verifier bridge before running Python tests.
+- Replaced unbounded TypeScript replay-response buffering with a 65,536-byte raw streaming bound, early `Content-Length` rejection, incremental UTF-8 decoding, and immediate reader cancellation.
+- Made TypeScript `adoptEpoch()` asynchronous and serialized epoch, key, transport, and checkpoint adoption with every signed remote operation.
+- Added one shared checkpoint-state validator for construction and adoption, requiring epoch-specific genesis at checkpoint zero and an explicit digest for restored nonzero checkpoints.
+- Aligned the Python replay client and empty-service promotion behavior with the same unambiguous genesis and restored-checkpoint rules.
+- Added deterministic streaming, cancellation, queue recovery, adoption ordering, atomic validation, and restored-state regression coverage.
 
 ## Tests executed
 
 - `npm ci`: passed with 0 reported dependency vulnerabilities.
 - `npm run build`: passed for all eight TypeScript workspaces.
-- `npm test`: 49 TypeScript tests passed, one opt-in real Linux TPM test skipped, the Python-service/Node-client replay interoperability check passed, and 97 Python tests passed.
-- `python -m unittest discover -s tests -v`: 97 passed.
+- `npm run typecheck`: passed for all eight TypeScript workspaces.
+- `npm test`: 62 TypeScript tests passed, one opt-in real Linux TPM test skipped, the Python-service/Node-client replay interoperability check passed, and 99 Python tests passed.
+- `python -m unittest discover -s tests -v`: 99 passed.
+- `python scripts/verify_remote_replay_interop.py`: passed against the live Python HTTP service and Node client.
+- CI-equivalent public demo, evidence-chain verification, containment-certificate verification, and selected fixed-vector verification: passed.
 - `scripts/demo.ps1`: passed with the documented success, denial, detection, and certificate summary.
 - GNU Make was not installed on the Windows release host; the documented PowerShell-equivalent demo command passed.
 - Live certificate verification: passed with Ed25519 key-identity validation.
 - Fixed capability vectors: 8 of 8 passed.
 - Python lint: passed for all 52 tracked Python files.
-- Repository policy: passed for all 174 tracked paths after staging the new sources.
+- Repository policy: passed for all 176 tracked paths after staging the new sources.
 - Temporary clean-clone install, build, tests, demo, vectors, fixture certificate, and policy audit: passed.
 
 ## Known failures
@@ -113,6 +122,9 @@
 - `src/event_horizon/remote_replay.py`, Python replay conformance tests, and Python remote adapters
 - Awaitable Executor Attestation nonce/verifier APIs and `RemoteNoncePersistence`
 - `docs/REMOTE_REPLAY_PROTOCOL.md` and cross-language replay verification scripts
+- `attestation/packages/core/src/remote-nonce-persistence.ts`
+- `attestation/tests/remote-http-transport.test.mjs` and `attestation/tests/remote-replay-client-state.test.mjs`
+- `.github/workflows/ci.yml`, `package.json`, `CHANGELOG.md`, and remote replay fixtures
 - `RELEASE_CHECKLIST.md` and `docs/releases/v0.4.0.md`
 - `STATUS.md`
 

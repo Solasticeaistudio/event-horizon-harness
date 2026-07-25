@@ -20,6 +20,7 @@ from event_horizon.remote_replay import (
     ReplayProtocolError,
     ReplayRequestSigner,
     ReplayUnavailableError,
+    genesis_checkpoint_digest,
 )
 
 
@@ -341,12 +342,72 @@ class RemoteReplayTests(unittest.TestCase):
         finally:
             promoted.close()
 
+    def test_zero_checkpoint_promotion_rebinds_genesis_to_the_new_epoch(self) -> None:
+        empty_path = self.root / "empty-replica.sqlite3"
+        empty = self._service_for(empty_path, epoch=1)
+        old_digest = genesis_checkpoint_digest(SERVICE_ID, 1)
+        try:
+            empty.promote(
+                2,
+                continuity_checkpoint=0,
+                continuity_digest=old_digest,
+            )
+            self.assertEqual(
+                empty.checkpoint(),
+                (2, 0, genesis_checkpoint_digest(SERVICE_ID, 2)),
+            )
+        finally:
+            empty.close()
+
+    def test_client_checkpoint_state_is_unambiguous(self) -> None:
+        genesis = genesis_checkpoint_digest(SERVICE_ID, 1)
+        omitted = self.client()
+        self.assertEqual((omitted.checkpoint, omitted.checkpoint_digest), (0, genesis))
+        explicit = AuthenticatedReplayClient(
+            self.signer,
+            self.service.handle,
+            self.service.public_key_pem,
+            epoch=1,
+            checkpoint=0,
+            checkpoint_digest=genesis,
+        )
+        self.assertEqual((explicit.checkpoint, explicit.checkpoint_digest), (0, genesis))
+
+        invalid_states = (
+            (-1, None),
+            (0.5, None),
+            (0, "a" * 64),
+            (1, None),
+            (1, "short"),
+        )
+        for checkpoint, checkpoint_digest in invalid_states:
+            with self.subTest(checkpoint=checkpoint, checkpoint_digest=checkpoint_digest):
+                with self.assertRaises(ReplayProtocolError):
+                    AuthenticatedReplayClient(
+                        self.signer,
+                        self.service.handle,
+                        self.service.public_key_pem,
+                        epoch=1,
+                        checkpoint=checkpoint,
+                        checkpoint_digest=checkpoint_digest,
+                    )
+
+        omitted.adopt_epoch(2, checkpoint=0)
+        self.assertEqual(
+            (omitted.epoch, omitted.checkpoint, omitted.checkpoint_digest),
+            (2, 0, genesis_checkpoint_digest(SERVICE_ID, 2)),
+        )
+
     def test_epoch_adoption_rejects_rollback_and_fork(self) -> None:
         client = self.client()
         store = RemoteCapabilityConsumptionStore(client, partition=CAPABILITIES)
         self.assertTrue(store.consume("cap_eeeeeeeeeeeeeeeeeeeeeeee", "a" * 64, 5000, 1000))
         with self.assertRaisesRegex(ReplayProtocolError, "regresses"):
-            client.adopt_epoch(2, checkpoint=0, checkpoint_digest="a" * 64)
+            client.adopt_epoch(
+                2,
+                checkpoint=0,
+                checkpoint_digest=genesis_checkpoint_digest(SERVICE_ID, 2),
+            )
         with self.assertRaisesRegex(ReplayProtocolError, "forks"):
             client.adopt_epoch(2, checkpoint=client.checkpoint, checkpoint_digest="a" * 64)
 

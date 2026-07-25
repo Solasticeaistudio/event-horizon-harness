@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "npm run build -w @event-horizon/attestation-crypto && npm run build -w @event-horizon/attestation-core && npm run build -w @event-horizon/attestation-simulator && npm run build -w @event-horizon/attestation-tpm && npm run build -w @event-horizon/attestation-sdk && npm run build -w @event-horizon/attestation-middleware && npm run build -w @event-horizon/attestation-cli && npm run build -w @event-horizon/attestation-service",
+    "build:attestation-bridge": "npm run build -w @event-horizon/attestation-crypto && npm run build -w @event-horizon/attestation-core && npm run build -w @event-horizon/attestation-simulator",
     "typecheck": "npm run build",
     "test": "npm run test:typescript && npm run test:replay-interop && npm run test:python",
     "test:typescript": "node --test attestation/tests/*.test.mjs",

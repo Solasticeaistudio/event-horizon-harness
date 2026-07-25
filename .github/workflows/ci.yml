@@ -22,6 +22,14 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Install bridge dependencies
+        run: npm ci
+      - name: Build Executor Attestation bridge
+        run: npm run build:attestation-bridge
       - name: Install project
         run: python -m pip install --disable-pip-version-check -e .
       - name: Lint Python sources

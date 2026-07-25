@@ -209,7 +209,7 @@ test('remote replay outage and stale epoch fail closed', async () => {
   );
 
   const remote = signedMock();
-  remote.client.adoptEpoch(2, 0, remoteReplayGenesisDigest(serviceId, 1));
+  await remote.client.adoptEpoch(2, 0, remoteReplayGenesisDigest(serviceId, 2));
   await assert.rejects(
     () => remote.client.call('nonce-inspect', partition, {
       nonce: Buffer.alloc(32).toString('base64url'),

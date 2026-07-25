@@ -151,6 +151,34 @@ def _require_positive_integer(value: Any, label: str) -> int:
     return _require_integer(value, label, minimum=1)
 
 
+def _normalize_checkpoint_state(
+    service_id: str,
+    epoch: int,
+    checkpoint: Any,
+    checkpoint_digest: Any,
+    label: str,
+) -> tuple[int, str]:
+    normalized_checkpoint = _require_integer(checkpoint, f"{label} checkpoint")
+    expected_genesis = genesis_checkpoint_digest(service_id, epoch)
+    if normalized_checkpoint == 0:
+        if checkpoint_digest is None:
+            return 0, expected_genesis
+        supplied_digest = _require_digest(checkpoint_digest, f"{label} checkpoint digest")
+        if supplied_digest != expected_genesis:
+            raise ReplayProtocolError(
+                f"{label} checkpoint zero must use the epoch genesis digest"
+            )
+        return 0, supplied_digest
+    if checkpoint_digest is None:
+        raise ReplayProtocolError(
+            f"{label} restored checkpoint requires an explicit digest"
+        )
+    return normalized_checkpoint, _require_digest(
+        checkpoint_digest,
+        f"{label} checkpoint digest",
+    )
+
+
 def _require_exact_fields(value: Any, fields: set[str], label: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping) or set(value) != fields:
         raise ReplayProtocolError(f"{label} fields are invalid")
@@ -368,9 +396,24 @@ class ReferenceReplayService:
                     raise ReplayStateError("failover epoch must increase")
                 if (row[1], row[2]) != (continuity_checkpoint, continuity_digest):
                     raise ReplayStateError("failover continuity checkpoint does not match restored state")
+                promoted_digest = continuity_digest
+                if continuity_checkpoint == 0:
+                    promoted_digest = genesis_checkpoint_digest(self.service_id, new_epoch)
+                    database.execute(
+                        """
+                        UPDATE replay_checkpoints
+                        SET epoch = ?, checkpoint_digest = ?
+                        WHERE checkpoint = 0
+                        """,
+                        (new_epoch, promoted_digest),
+                    )
                 database.execute(
-                    "UPDATE replay_metadata SET epoch = ?, server_key_id = ? WHERE singleton = 1",
-                    (new_epoch, promoted_key_id),
+                    """
+                    UPDATE replay_metadata
+                    SET epoch = ?, server_key_id = ?, checkpoint_digest = ?
+                    WHERE singleton = 1
+                    """,
+                    (new_epoch, promoted_key_id, promoted_digest),
                 )
                 database.execute("COMMIT")
             except (sqlite3.Error, ReplayStateError) as exc:
@@ -927,12 +970,13 @@ class AuthenticatedReplayClient:
         self.server_public_key = _load_public_key(server_public_key)
         self.server_key_id = replay_key_id(self.server_public_key)
         self.epoch = _require_positive_integer(epoch, "client epoch")
-        self.checkpoint = _require_integer(checkpoint, "client checkpoint")
-        self.checkpoint_digest = checkpoint_digest or genesis_checkpoint_digest(
+        self.checkpoint, self.checkpoint_digest = _normalize_checkpoint_state(
             signer.service_id,
             epoch,
+            checkpoint,
+            checkpoint_digest,
+            "client",
         )
-        _require_digest(self.checkpoint_digest, "client checkpoint digest")
         self._lock = threading.RLock()
 
     def call(
@@ -970,30 +1014,45 @@ class AuthenticatedReplayClient:
         epoch: int,
         *,
         checkpoint: int,
-        checkpoint_digest: str,
+        checkpoint_digest: str | None = None,
         server_public_key: str | Ed25519PublicKey | None = None,
         transport: ReplayTransport | None = None,
     ) -> None:
         """Accept an operator-authorized promotion after continuity is checked."""
 
         with self._lock:
-            _require_positive_integer(epoch, "promoted epoch")
-            _require_integer(checkpoint, "promoted checkpoint")
-            _require_digest(checkpoint_digest, "promoted checkpoint digest")
-            if epoch <= self.epoch:
-                raise ReplayProtocolError("promoted epoch must increase")
-            if checkpoint < self.checkpoint:
-                raise ReplayProtocolError("promoted service checkpoint regresses")
-            if checkpoint == self.checkpoint and checkpoint_digest != self.checkpoint_digest:
-                raise ReplayProtocolError("promoted service checkpoint forks known history")
+            promoted_epoch = _require_positive_integer(epoch, "promoted epoch")
+            promoted_checkpoint, promoted_digest = _normalize_checkpoint_state(
+                self.signer.service_id,
+                promoted_epoch,
+                checkpoint,
+                checkpoint_digest,
+                "promoted",
+            )
+            promoted_public_key = self.server_public_key
+            promoted_server_key_id = self.server_key_id
             if server_public_key is not None:
-                self.server_public_key = _load_public_key(server_public_key)
-                self.server_key_id = replay_key_id(self.server_public_key)
+                promoted_public_key = _load_public_key(server_public_key)
+                promoted_server_key_id = replay_key_id(promoted_public_key)
+            if transport is not None and not callable(transport):
+                raise TypeError("promoted replay transport must be callable")
+            if promoted_epoch <= self.epoch:
+                raise ReplayProtocolError("promoted epoch must increase")
+            if promoted_checkpoint < self.checkpoint:
+                raise ReplayProtocolError("promoted service checkpoint regresses")
+            if (
+                promoted_checkpoint > 0
+                and promoted_checkpoint == self.checkpoint
+                and promoted_digest != self.checkpoint_digest
+            ):
+                raise ReplayProtocolError("promoted service checkpoint forks known history")
+            self.server_public_key = promoted_public_key
+            self.server_key_id = promoted_server_key_id
             if transport is not None:
                 self.transport = transport
-            self.epoch = epoch
-            self.checkpoint = checkpoint
-            self.checkpoint_digest = checkpoint_digest
+            self.epoch = promoted_epoch
+            self.checkpoint = promoted_checkpoint
+            self.checkpoint_digest = promoted_digest
 
     def _verify_response(
         self,
