@@ -31,7 +31,7 @@ jobs:
       - name: Build Executor Attestation bridge
         run: npm run build:attestation-bridge
       - name: Install project
-        run: python -m pip install --disable-pip-version-check -e .
+        run: python -m pip install --disable-pip-version-check -e ".[test]"
       - name: Lint Python sources
         run: python scripts/lint_python.py
       - name: Run Python tests
@@ -74,7 +74,7 @@ jobs:
       - name: Clean installs
         run: |
           npm ci
-          python -m pip install --disable-pip-version-check -e .
+          python -m pip install --disable-pip-version-check -e ".[test]"
       - name: Build integration dependencies
         run: npm run build
       - name: Run complete public demonstration

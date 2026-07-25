@@ -19,7 +19,7 @@ cd "$CHECKOUT"
 npm ci
 python -m venv "$VIRTUAL_ENVIRONMENT"
 export PATH="$VIRTUAL_ENVIRONMENT/bin:$PATH"
-python -m pip install --disable-pip-version-check -e .
+python -m pip install --disable-pip-version-check -e ".[test]"
 npm run build
 npm test
 npm run demo

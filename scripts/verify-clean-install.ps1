@@ -16,7 +16,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "npm ci failed" }
         python -m venv $VirtualEnvironment
         $env:PATH = (Join-Path $VirtualEnvironment "Scripts") + [IO.Path]::PathSeparator + $env:PATH
-        python -m pip install --disable-pip-version-check -e .
+        python -m pip install --disable-pip-version-check -e ".[test]"
         if ($LASTEXITCODE -ne 0) { throw "Python installation failed" }
         npm run build
         if ($LASTEXITCODE -ne 0) { throw "build failed" }
