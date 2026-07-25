@@ -115,7 +115,7 @@ python scripts/verify_certificate.py .demo/latest-containment-certificate.json
 python scripts/check_repository_policy.py
 ```
 
-`npm test` currently runs 43 TypeScript tests—42 pass and the real-TPM integration test is opt-in—and 61 Python tests. For an isolated clone, run `scripts/verify-clean-install.sh` or `scripts/verify-clean-install.ps1`.
+`npm test` currently runs 43 TypeScript tests—42 pass and the real-TPM integration test is opt-in—and 70 Python tests. For an isolated clone, run `scripts/verify-clean-install.sh` or `scripts/verify-clean-install.ps1`.
 
 The [implementation-level design defense](docs/DESIGN_DEFENSE.md) maps the central security questions to the current code and trust assumptions.
 

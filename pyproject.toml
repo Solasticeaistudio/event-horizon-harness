@@ -9,7 +9,11 @@ description = "Compromise-tolerant authority containment harness for autonomous 
 requires-python = ">=3.11"
 authors = [{name = "Justin Meister / Solstice AI Studio"}]
 license = {text = "Proprietary research prototype"}
-dependencies = ["cryptography==46.0.3"]
+dependencies = [
+    "cryptography==46.0.3",
+    "cffi==2.1.0",
+    "pycparser==3.0",
+]
 
 [project.scripts]
 event-horizon-demo = "event_horizon.public_demo:main"

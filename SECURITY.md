@@ -24,7 +24,7 @@ Availability failures without authority gain, behavior already listed in `KNOWN_
 
 Test only environments, accounts, data, and synthetic ranges you own or are explicitly authorized to use. Real-world targets and public infrastructure are out of scope. Destructive actions, denial of service, credential abuse, persistence on systems outside the synthetic fixture, unauthorized access, social engineering, and attempts to hide activity are prohibited.
 
-The repository contains no authorization to test third parties. Use the bounded scripted adversary and `synthetic://` fixtures for public reproductions.
+The repository contains no authorization to test third parties. Use the bounded scripted adversary and declared `synthetic-range/...` fixtures for public reproductions.
 
 ## Supported versions
 

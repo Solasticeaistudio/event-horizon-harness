@@ -15,7 +15,7 @@
     "test:typescript": "node --test attestation/tests/*.test.mjs",
     "test:python": "python -m unittest discover -s tests -v",
     "demo": "python -m event_horizon.public_demo",
-    "sbom": "npm sbom --package-lock-only --sbom-format cyclonedx --sbom-type application"
+    "sbom": "python scripts/generate_sbom.py"
   },
   "engines": {
     "node": ">=20"

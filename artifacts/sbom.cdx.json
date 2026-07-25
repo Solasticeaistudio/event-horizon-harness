@@ -1,11 +1,11 @@
-﻿{
+{
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:370ce6c6-e88a-492a-b0b6-e73d65c33864",
+  "serialNumber": "urn:uuid:e67ab0cb-34d5-58e3-b20d-28f6db0e0321",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-07-24T23:47:13.874Z",
+    "timestamp": "2026-07-24T00:00:00.000Z",
     "lifecycles": [
       {
         "phase": "pre-build"
@@ -16,12 +16,17 @@
         "vendor": "npm",
         "name": "cli",
         "version": "10.9.3"
+      },
+      {
+        "vendor": "Event Horizon",
+        "name": "pinned-pyproject dependency export",
+        "version": "0.4.0"
       }
     ],
     "component": {
       "bom-ref": "event-horizon-harness@0.4.0",
       "type": "application",
-      "name": "event-horizon-harness-v0.3",
+      "name": "event-horizon-harness",
       "version": "0.4.0",
       "scope": "required",
       "purl": "pkg:npm/event-horizon-harness@0.4.0",
@@ -240,6 +245,62 @@
           }
         }
       ]
+    },
+    {
+      "bom-ref": "pkg:pypi/cffi@2.1.0",
+      "type": "library",
+      "name": "cffi",
+      "version": "2.1.0",
+      "scope": "required",
+      "purl": "pkg:pypi/cffi@2.1.0",
+      "properties": [
+        {
+          "name": "event-horizon:python-dependency-group",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:pypi/cryptography@46.0.3",
+      "type": "library",
+      "name": "cryptography",
+      "version": "46.0.3",
+      "scope": "required",
+      "purl": "pkg:pypi/cryptography@46.0.3",
+      "properties": [
+        {
+          "name": "event-horizon:python-dependency-group",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:pypi/pycparser@3.0",
+      "type": "library",
+      "name": "pycparser",
+      "version": "3.0",
+      "scope": "required",
+      "purl": "pkg:pypi/pycparser@3.0",
+      "properties": [
+        {
+          "name": "event-horizon:python-dependency-group",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:pypi/setuptools@82.0.1",
+      "type": "library",
+      "name": "setuptools",
+      "version": "82.0.1",
+      "scope": "optional",
+      "purl": "pkg:pypi/setuptools@82.0.1",
+      "properties": [
+        {
+          "name": "event-horizon:python-dependency-group",
+          "value": "build"
+        }
+      ]
     }
   ],
   "dependencies": [
@@ -255,7 +316,10 @@
         "@event-horizon/attestation-tpm@0.4.0",
         "@event-horizon/attestation-service@0.4.0",
         "@types/node@22.20.1",
-        "typescript@5.9.3"
+        "typescript@5.9.3",
+        "pkg:pypi/cffi@2.1.0",
+        "pkg:pypi/cryptography@46.0.3",
+        "pkg:pypi/pycparser@3.0"
       ]
     },
     {
@@ -321,6 +385,26 @@
     },
     {
       "ref": "undici-types@6.21.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/cffi@2.1.0",
+      "dependsOn": [
+        "pkg:pypi/pycparser@3.0"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/cryptography@46.0.3",
+      "dependsOn": [
+        "pkg:pypi/cffi@2.1.0"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/pycparser@3.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/setuptools@82.0.1",
       "dependsOn": []
     }
   ]

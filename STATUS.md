@@ -11,7 +11,7 @@
 - Expanded the root ignore policy across all Python and Node workspaces, local environment files, coverage output, and internal development material.
 - Promoted npm to a pinned root workspace with one lockfile and root-level build/test commands.
 - Pinned the Python runtime dependency and build backend for the v0.4.0 artifact.
-- Generated a CycloneDX 1.5 SBOM with 11 components.
+- Generated a deterministic CycloneDX 1.5 SBOM with 15 Node and pinned Python components.
 - Added isolated clean-install scripts for POSIX shells and PowerShell.
 - Added an independently verifiable, explicitly non-claiming certificate fixture.
 - Replaced public mythology-based component labels with functional names in documentation, tests, evidence IDs, console output, and entry points.
@@ -46,33 +46,34 @@
 
 ## Tests executed
 
-- `npm run build` in `attestation/`: passed for all 8 workspaces.
-- `npm test` in `attestation/`: 16 passed, 1 skipped (opt-in real TPM).
-- `eh-attest prove`, `eh-attest verify`, `eh-attest inspect`: passed.
-- `python -m unittest discover -s tests -v`: 36 passed.
-- Tracked-artifact and public-reader-path audits: passed.
-- Prospective clean checkout: `npm ci`, Python virtual-environment install, all builds, all tests, demo, and certificate verification passed.
-- Functional-label regression: 16 TypeScript tests passed, 1 opt-in TPM test skipped, 36 Python tests passed, and the scripted adversarial demo passed.
-- Provider-dispatch regression: 26 TypeScript tests passed, 1 opt-in real-TPM test skipped, 36 Python tests passed, and all 8 TypeScript workspaces built.
-- Nonce-authority regression: 34 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 36 Python tests passed.
-- Fresh-attestation regression: 42 TypeScript tests passed, 1 opt-in real-TPM test skipped, and 37 Python tests passed.
-- Capability hardening regression: 51 Python tests passed, including all 8 fixed public vectors.
-- Guardian compromise regression: 60 Python tests passed.
-- Public-demo regression: 61 Python tests passed; the PowerShell single-command demo and independent live-certificate verification passed.
-- Bounded-runner regression: 66 Python tests passed, including deterministic replay, range/destination rejection, budget exhaustion, and human-approval gating.
-- Experiment-format regression: 70 Python tests passed, including fixed comparison reproduction, strict pairing, and mislabel rejection.
-- CI-equivalent integration run: process-separated demo, generated evidence chain, generated certificate, and selected fixed vectors passed.
-- Repository lint/policy checks: 38 tracked Python files and 138 tracked repository paths passed.
+- `npm ci`: passed with 0 reported dependency vulnerabilities.
+- `npm run build`: passed for all eight TypeScript workspaces.
+- `npm test`: 42 TypeScript tests passed, one opt-in real Linux TPM test skipped, and 70 Python tests passed.
+- `python -m unittest discover -s tests -v`: 70 passed.
+- `scripts/demo.ps1`: passed with the documented success, denial, detection, and certificate summary.
+- GNU Make was not installed on the Windows release host; the documented PowerShell-equivalent demo command passed.
+- Live certificate verification: passed with Ed25519 key-identity validation.
+- Fixed capability vectors: 8 of 8 passed.
+- Python lint: passed for 45 tracked Python files.
+- Repository policy: passed for all 158 tracked paths.
+- Temporary clean-clone install, build, tests, demo, vectors, fixture certificate, and policy audit: passed.
 
 ## Known failures
 
-- None.
+- None in the portable release suite.
+- The real Linux TPM integration test is opt-in and was not run on the Windows release host; this is a declared unverified integration target, not a passing hardware-attestation claim.
+- Hosted GitHub Actions cannot be observed until the local release commit is pushed.
 
 ## Security limitations
 
 - Nonce atomicity is currently guaranteed only inside one verifier process; no Redis or transactional database backend ships yet.
 - The execution cell is not a production Firecracker deployment.
 - The simulator is development-only and is not hardware attestation.
+- Capability consumption is process-local and not durable across broker state loss.
+- TPM enrollment, endorsement validation, physical provenance, and fleet measurement policy are incomplete.
+- The evidence recorder is logically separate but remains on the same host; it is not physically one-way or independently administered.
+- Tests are project-authored and automated; no external security audit has occurred.
+- No frontier-model containment claim is made.
 
 ## Files changed
 
@@ -95,20 +96,20 @@
 - Bounded synthetic adversarial-runner interface, manifest schema, safe adapter, public example, documentation, and regression tests
 - Paired experiment validator, JSON schema, explicitly scripted reference comparison, documentation, and tests
 - `docs/DESIGN_DEFENSE.md`
+- `RELEASE_CHECKLIST.md` and `docs/releases/v0.4.0.md`
 - `STATUS.md`
 
 ## Commands to reproduce
 
 ```powershell
-npm ci
-npm run build
-npm test
-python scripts/verify_certificate.py examples/reference-run/containment-certificate.json
+./scripts/verify-clean-install.ps1
+./scripts/demo.ps1
+python scripts/verify_certificate.py .demo/latest-containment-certificate.json
 ```
 
 ## Next engineering milestone
 
-Run final clean-checkout verification, reconcile release metadata, and prepare the v0.4.0 release checklist.
+Implement durable transactional nonce and capability consumption across verifier and broker replicas.
 
 ## Exact next command
 

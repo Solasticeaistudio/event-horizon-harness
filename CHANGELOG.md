@@ -13,6 +13,9 @@ All notable public-artifact changes are recorded here. The project follows seman
 - Guardian compromise and coordination-failure injection tests.
 - Reproducible root npm workspace, lockfile, SBOM, and clean-install verification scripts.
 - Public architecture, threat-model, disclosure, red-team, contribution, and limitations documentation.
+- A process-separated single-command containment demo with independent certificate verification.
+- A bounded synthetic adversarial-runner interface and strict paired experiment format.
+- Implementation-level design-defense answers and clean GitHub Actions regression workflows.
 
 ### Changed
 
