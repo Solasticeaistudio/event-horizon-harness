@@ -12,13 +12,14 @@ The tested claim is narrower than general containment: compromise inside the hos
 - Executor Attestation issues a fresh, context-bound nonce and dispatches verification by signed-bundle method. The default public demo uses a simulator and labels it development-only.
 - An Ed25519 capability binds the exact request, arguments, session, executor, device, measurement, attestation, verifier policy, static policy, expiry, output limit, and one-use identifier.
 - The signer and executor independently reconstruct request and argument digests. SQLite-backed replay state makes nonce and capability consumption durable and atomic across cooperating processes on one host.
+- Capability issuance/consumption, evidence append, and certificate construction require fresh Ed25519 client authorization. Service signing seeds are restricted file-backed fixtures, not inline JSON values.
 - Four required guardians form a unanimity veto. Missing, malformed, stale, inconsistent, crashed, or timed-out decisions deny execution.
 - An independent logical evidence recorder hash-chains events and signs receipts. A detached Ed25519 containment certificate covers the recorded evidence domains and verified teardown.
 - Fixed adversarial vectors and compromise-injection tests exercise parser disagreement, substitution, replay, guardian failure, evidence tampering, and transfer attempts.
 
 ## What it does not demonstrate
 
-This repository does not demonstrate containment of a frontier model, production Firecracker isolation, production TPM enrollment or hardware provenance, resistance to host-kernel compromise, physically one-way evidence storage, multi-host replay-state atomicity, or an independent security audit. The scripted adversary uses harmless synthetic actions; it is not a real offensive campaign result.
+This repository does not demonstrate containment of a frontier model, production Firecracker isolation, production TPM enrollment or hardware provenance, resistance to host-kernel compromise, separately administered or hardware-backed signing, physically one-way evidence storage, multi-host replay-state atomicity, or an independent security audit. The scripted adversary uses harmless synthetic actions; it is not a real offensive campaign result.
 
 See [Known limitations](KNOWN_LIMITATIONS.md) for the complete claim boundary.
 
@@ -30,7 +31,7 @@ Every issued capability is the intersection of the canonical request and determi
 
 ## Threat model
 
-Assume arbitrary code execution, root-equivalent visibility, stolen local files and process memory, parser pressure, replay, concurrency, and deliberate evidence tampering inside the sacrificial cell. Capability signing keys, attestation enrollment, deterministic policy, broker replay state, the logical recorder, certificate signing, and the host isolation boundary remain trusted computing base components in the current prototype.
+Assume arbitrary code execution, root-equivalent visibility, stolen local files and process memory, parser pressure, replay, concurrency, and deliberate evidence tampering inside the sacrificial cell. Capability and protected-client signing keys, attestation enrollment, deterministic policy, replay state, the logical recorder, certificate signing, and the host isolation boundary remain trusted computing base components in the current prototype.
 
 The system accepts loss of availability when a trusted component fails. It does not recover availability by granting fallback authority. See the [full threat model](docs/THREAT_MODEL.md) and [Executor Attestation threat model](docs/ATTESTATION_THREAT_MODEL.md).
 
@@ -58,13 +59,13 @@ Sacrificial Executor
     v
 Sanitized Result Channel
 
-Independent logical side plane on the same host:
+Authenticated logical side plane on the same host:
 requests, decisions, capabilities and results
     -> Independent logical evidence recorder
     -> Signed Containment Certificate
 ```
 
-Physical separation of the evidence plane is future work. Implementation details are in [Architecture](docs/ARCHITECTURE.md), [Guardian quorum semantics](docs/GUARDIAN_QUORUM.md), [Executor Attestation architecture](docs/ATTESTATION_ARCHITECTURE.md), and [Durable replay state](docs/REPLAY_STATE.md).
+Physical separation of the evidence plane is future work. Implementation details are in [Architecture](docs/ARCHITECTURE.md), [Protected signing and evidence boundaries](docs/PROTECTED_BOUNDARIES.md), [Guardian quorum semantics](docs/GUARDIAN_QUORUM.md), [Executor Attestation architecture](docs/ATTESTATION_ARCHITECTURE.md), and [Durable replay state](docs/REPLAY_STATE.md).
 
 ## Quick start
 
@@ -138,13 +139,13 @@ Report plausible containment bypasses privately before publishing details.
 
 ## Current limitations
 
-The default execution path is process separation, not a production microVM. TPM fixtures and `swtpm` do not establish hardware provenance. The evidence recorder is logically independent but runs on the same host. SQLite replay atomicity is limited to one host and one local database; database rollback or compromise remains in the trusted computing base. Tests are project-authored and automated, and no external audit has occurred.
+The default execution path is process separation, not a production microVM. TPM fixtures and `swtpm` do not establish hardware provenance. Signing and evidence mutations are authenticated, but their development keys, services, and storage remain under one host account. SQLite replay atomicity is limited to one host and one local database; database rollback or compromise remains in the trusted computing base. Tests are project-authored and automated, and no external audit has occurred.
 
 These are active limitations, not deployment footnotes. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
 ## Roadmap
 
-1. Place capability signing and authoritative evidence behind separately administered, protected boundaries.
+1. Deploy the authenticated signing/evidence interfaces under separate principals with externally provisioned protected keys and storage.
 2. Add a linearizable multi-host replay backend with authenticated clients and rollback defenses.
 3. Complete production TPM enrollment, endorsement validation, quote generation, and measurement policy.
 4. Run the executor in a reproducibly built Firecracker image with enforced host controls and teardown.

@@ -15,6 +15,11 @@ from .canonical import canonical_bytes, digest
 from .models import ActionRequest, ExecutionResult, IssuedCapability, ValidationError
 from .intent_canonicalizer import AuthorizationDenied
 from .protocol import ProtocolError, read_frame, request_envelope, validate_response, write_frame
+from .protected_boundary import (
+    ProtectedRequestSigner,
+    load_private_seed,
+    provision_private_seed,
+)
 from .recorder import ExternalRecorder
 
 
@@ -23,10 +28,20 @@ class ServiceUnavailable(RuntimeError):
 
 
 class ProcessClient:
-    def __init__(self, role: str, config_path: Path, repository_root: Path):
+    def __init__(
+        self,
+        role: str,
+        config_path: Path,
+        repository_root: Path,
+        *,
+        request_signer: ProtectedRequestSigner | None = None,
+        protected_types: frozenset[str] = frozenset(),
+    ):
         self.role = role
         self.config_path = config_path
         self.repository_root = repository_root
+        self.request_signer = request_signer
+        self.protected_types = protected_types
         self._lock = threading.RLock()
         self._responses: queue.Queue[dict[str, Any] | BaseException] = queue.Queue()
         safe_names = {'PATH', 'PATHEXT', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}
@@ -83,20 +98,29 @@ class ProcessClient:
         body: Mapping[str, Any],
         *,
         timeout_seconds: float = 5.0,
+        authorize: bool | None = None,
     ) -> dict[str, Any]:
         with self._lock:
             if not self.running or self.process.stdin is None:
                 raise ServiceUnavailable(f'{self.role} service is unavailable')
             request_id = f'{self.role}-{secrets.token_hex(8)}'
             try:
+                envelope = request_envelope(
+                    message_type,
+                    request_id,
+                    body,
+                    timeout_seconds=timeout_seconds,
+                )
+                should_authorize = message_type in self.protected_types if authorize is None else authorize
+                if should_authorize:
+                    if self.request_signer is None:
+                        raise ServiceUnavailable(
+                            f'{self.role} protected request signer is unavailable'
+                        )
+                    envelope['authorization'] = self.request_signer.authorize(envelope)
                 write_frame(
                     self.process.stdin,
-                    request_envelope(
-                        message_type,
-                        request_id,
-                        body,
-                        timeout_seconds=timeout_seconds,
-                    ),
+                    envelope,
                 )
                 response = self._responses.get(timeout=timeout_seconds + 0.25)
             except (BrokenPipeError, EOFError, OSError, queue.Empty) as exc:
@@ -133,8 +157,21 @@ def _write_config(path: Path, payload: Mapping[str, Any]) -> None:
         path.chmod(0o600)
 
 
+def _provision_or_load_seed(path: Path) -> bytes:
+    try:
+        provision_private_seed(path, secrets.token_bytes(32))
+    except FileExistsError:
+        pass
+    return load_private_seed(path)
+
+
 class ProcessSeparatedHarness:
     ROLES = ('parser', 'verifier', 'guardians', 'signer', 'executor', 'recorder', 'certificate')
+    PROTECTED_TYPES = {
+        'signer': frozenset({'issue', 'consume'}),
+        'recorder': frozenset({'append'}),
+        'certificate': frozenset({'build'}),
+    }
 
     def __init__(
         self,
@@ -148,12 +185,17 @@ class ProcessSeparatedHarness:
         self.trusted_dir = self.workdir / 'trusted-control'
         self.authority_replay_path = self.trusted_dir / 'replay-state.sqlite3'
         self.executor_replay_path = self.workdir / 'executor-state' / 'replay-state.sqlite3'
+        self.evidence_replay_path = self.workdir / 'evidence-control' / 'replay-state.sqlite3'
+        self.capability_key_path = self.workdir / 'authority-secrets' / 'capability-signing.seed'
+        self.recorder_key_path = self.workdir / 'evidence-secrets' / 'recorder-signing.seed'
+        self.certificate_key_path = self.workdir / 'evidence-secrets' / 'certificate-signing.seed'
         self.recorder_path = self.workdir / 'external-evidence' / 'events.jsonl'
         self.ttl_seconds = ttl_seconds
         self.inject_permissive_guardian = inject_permissive_guardian
         self.clients: dict[str, ProcessClient] = {}
         self.config_paths: dict[str, Path] = {}
         self.service_info: dict[str, dict[str, Any]] = {}
+        self.protected_request_signers: dict[str, ProtectedRequestSigner] = {}
         self.source_sequences: dict[str, int] = {}
         self.attestations: list[dict[str, Any]] = []
         self.capabilities: list[IssuedCapability] = []
@@ -187,7 +229,13 @@ class ProcessSeparatedHarness:
     def _start_role(self, role: str, config: Mapping[str, Any]) -> ProcessClient:
         config_path = self.trusted_dir / f'{role}.json'
         _write_config(config_path, {'role': role, **dict(config)})
-        client = ProcessClient(role, config_path, self.repository_root)
+        client = ProcessClient(
+            role,
+            config_path,
+            self.repository_root,
+            request_signer=self.protected_request_signers.get(role),
+            protected_types=self.PROTECTED_TYPES.get(role, frozenset()),
+        )
         self.clients[role] = client
         self.config_paths[role] = config_path
         return client
@@ -199,11 +247,17 @@ class ProcessSeparatedHarness:
         body: Mapping[str, Any],
         *,
         timeout_seconds: float = 5.0,
+        authorize: bool | None = None,
     ) -> dict[str, Any]:
         client = self.clients.get(role)
         if client is None:
             raise ServiceUnavailable(f'{role} service is unavailable')
-        return client.call(message_type, body, timeout_seconds=timeout_seconds)
+        return client.call(
+            message_type,
+            body,
+            timeout_seconds=timeout_seconds,
+            authorize=authorize,
+        )
 
     def start(self) -> 'ProcessSeparatedHarness':
         if self._started:
@@ -221,7 +275,26 @@ class ProcessSeparatedHarness:
         })
         attestation_root = self.repository_root / 'attestation'
         replay_namespace = 'public-process-harness'
-        capability_seed = secrets.token_bytes(32)
+        _provision_or_load_seed(self.capability_key_path)
+        _provision_or_load_seed(self.recorder_key_path)
+        _provision_or_load_seed(self.certificate_key_path)
+        self.protected_request_signers = {
+            'signer': ProtectedRequestSigner(secrets.token_bytes(32), 'capability-signer'),
+            'recorder': ProtectedRequestSigner(secrets.token_bytes(32), 'evidence-recorder'),
+            'certificate': ProtectedRequestSigner(
+                secrets.token_bytes(32),
+                'certificate-signer',
+            ),
+        }
+
+        def protected_config(role: str, database: Path) -> dict[str, Any]:
+            request_signer = self.protected_request_signers[role]
+            return {
+                'authorized_client_public_key': request_signer.public_key_pem,
+                'authorized_client_key_id': request_signer.key_id,
+                'authorization_replay_database': str(database),
+                'authorization_namespace': replay_namespace,
+            }
 
         try:
             self._start_role('parser', {})
@@ -247,19 +320,20 @@ class ProcessSeparatedHarness:
                 'signer',
                 {
                     'ttl_seconds': self.ttl_seconds,
-                    'signing_seed_hex': capability_seed.hex(),
+                    'signing_key_path': str(self.capability_key_path),
                     'replay_database': str(self.authority_replay_path),
                     'replay_namespace': replay_namespace,
                     'consumption_domain': 'broker',
+                    **protected_config('signer', self.authority_replay_path),
                 },
             )
-            recorder_seed = secrets.token_bytes(32)
             self._start_role(
                 'recorder',
                 {
                     'path': str(self.recorder_path),
-                    'signing_seed_hex': recorder_seed.hex(),
+                    'signing_key_path': str(self.recorder_key_path),
                     'max_event_bytes': 16_384,
+                    **protected_config('recorder', self.evidence_replay_path),
                 },
             )
             signer_info = signer.call('info', {})
@@ -283,7 +357,14 @@ class ProcessSeparatedHarness:
                     },
                 },
             )
-            self._start_role('certificate', {'recorder_path': str(self.recorder_path)})
+            self._start_role(
+                'certificate',
+                {
+                    'recorder_path': str(self.recorder_path),
+                    'signing_key_path': str(self.certificate_key_path),
+                    **protected_config('certificate', self.evidence_replay_path),
+                },
+            )
             for role in self.ROLES:
                 self.service_info[role] = self.call(role, 'info', {})
             pids = [info['pid'] for info in self.service_info.values()]
@@ -476,8 +557,8 @@ class ProcessSeparatedHarness:
             client.stop()
 
     def restart_role(self, role: str) -> dict[str, Any]:
-        if role not in {'verifier', 'signer', 'executor'}:
-            raise ValueError('only authority-state roles use the generic restart path')
+        if role not in {'verifier', 'signer', 'executor', 'recorder', 'certificate'}:
+            raise ValueError('role does not support state-preserving restart')
         config_path = self.config_paths.get(role)
         if config_path is None:
             raise ServiceUnavailable(f'{role} service configuration is unavailable')
@@ -491,14 +572,7 @@ class ProcessSeparatedHarness:
         return info
 
     def restart_recorder(self) -> dict[str, Any]:
-        config_path = self.config_paths['recorder']
-        config = json.loads(config_path.read_text(encoding='utf-8'))
-        self.stop_role('recorder')
-        client = ProcessClient('recorder', config_path, self.repository_root)
-        self.clients['recorder'] = client
-        info = client.call('info', {})
-        self.service_info['recorder'] = info
-        return info
+        return self.restart_role('recorder')
 
     def teardown_executor(self) -> dict[str, Any]:
         client = self.clients.get('executor')

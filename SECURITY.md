@@ -12,6 +12,8 @@ A valid report demonstrates or plausibly identifies a failure of a documented se
 
 - authority outside the deterministic static-policy ceiling;
 - capability replay, scope widening, or transfer across a bound executor or session;
+- unauthenticated, replayed, expired, wrong-audience, or mutated requests accepted by the capability signer, evidence recorder, or certificate signer;
+- capability, recorder, certificate, or protected-client private material exposed through executor configuration or ordinary service metadata;
 - accepted attestation without an issued one-use nonce or verified provider result;
 - replay accepted after an ordinary verifier, signer, or executor process restart when the configured durable state remains intact;
 - a way for the hostile executor to read, mutate, delete, or roll back authoritative nonce or broker replay state in the documented topology;

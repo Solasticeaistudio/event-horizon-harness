@@ -23,8 +23,8 @@ Assume the workload can inspect all guest inputs and local files, execute arbitr
 
 - Compromise begins inside the hostile cell, not inside every independent TCB process simultaneously.
 - One guardian may be compromised; static policy and the remaining vetoes are not all compromised together.
-- Capability signer, verifier, recorder, and certificate keys are provisioned outside the cell.
-- The external recorder storage and private key are not writable from the cell. The same-host demo emulates this boundary with a separate process; production requires separate administration/storage.
+- Capability signer, verifier, recorder, certificate, and protected-client keys are provisioned outside executor configuration. The portable harness uses restricted development files and in-memory client keys; production requires distinct principals and external provisioning.
+- Recorder mutation requests are client-authenticated and its storage/private key are logically outside the cell. The same-host demo does not enforce this against same-user filesystem or process-memory access; production requires separate administration/storage.
 - In hardware mode, the verifier has an authentic pre-registered AK public key and qualified name, and the configured PCR policy represents the intended image.
 - In Firecracker mode, host kernel/KVM/Firecracker/watchdog integrity is part of the TCB. No VM-isolation claim is made by the process fallback.
 - The certificate consumer independently verifies the certificate signature, recorder chain/receipts, configuration digests, and claim-mode label.
@@ -41,6 +41,7 @@ Assume the workload can inspect all guest inputs and local files, execute arbitr
 | Egress/lateral movement | Static policy veto; Firecracker has no NIC/MMDS |
 | Persistence | External watchdog and scratch/config destruction evidence |
 | Evidence mutation/loss/reordering | Hash chain, source/global sequence, signed receipts, restart validation |
+| Forged protected-service request | Exact-envelope Ed25519 client authorization plus durable one-use nonce |
 | One guardian compromise | Veto quorum; guardians only subtract authority |
 | Signer/verifier outage | No local key or cached authorization fallback |
 | Parser/output pressure | Fixed framing and byte/depth/request/output limits |

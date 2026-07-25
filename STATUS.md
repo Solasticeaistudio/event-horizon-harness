@@ -25,6 +25,10 @@
 - Added durable SQLite capability consumption behind a shared broker/executor interface, with separate authority and executor domains.
 - Wired the default local and process-separated harnesses to durable replay state; authoritative nonce and broker state is not configured into the hostile executor.
 - Added process restart, 24-process nonce contention, 16-process capability contention, namespace/domain isolation, corruption, collision, closed-store, and schema-version regressions.
+- Added Ed25519-authenticated request envelopes for capability issue/consume, evidence append, and containment-certificate construction.
+- Bound each protected authorization to the exact canonical RPC envelope, service audience, client key, freshness window, and a durable one-use nonce.
+- Removed inline capability/recorder seeds from service JSON, made the certificate key restart-stable, and provisioned distinct restricted development key files.
+- Added 16-process protected-request contention plus replay, mutation, wrong-key, wrong-audience, algorithm, signature, expiry, future-time, unavailable/corrupt/schema-incompatible state, collision, key-file, unauthenticated-service, and restart-continuity tests.
 - Propagated verified nonce context and lifetime through guardians, capabilities, process services, and evidence records.
 - Made the development bridge's no-cache contract explicit: each capability request requires a fresh proof and session-bound result digest.
 - Added stale-proof and reuse regressions covering expiry, measurement, policy, session, key, and executor changes.
@@ -51,14 +55,14 @@
 
 - `npm ci`: passed with 0 reported dependency vulnerabilities.
 - `npm run build`: passed for all eight TypeScript workspaces.
-- `npm test`: 46 TypeScript tests passed, one opt-in real Linux TPM test skipped, and 76 Python tests passed.
-- `python -m unittest discover -s tests -v`: 76 passed.
+- `npm test`: 46 TypeScript tests passed, one opt-in real Linux TPM test skipped, and 83 Python tests passed.
+- `python -m unittest discover -s tests -v`: 83 passed.
 - `scripts/demo.ps1`: passed with the documented success, denial, detection, and certificate summary.
 - GNU Make was not installed on the Windows release host; the documented PowerShell-equivalent demo command passed.
 - Live certificate verification: passed with Ed25519 key-identity validation.
 - Fixed capability vectors: 8 of 8 passed.
-- Python lint: passed for 47 Python files after staging the new sources.
-- Repository policy: passed for all 164 tracked paths after staging the new sources.
+- Python lint: passed for 49 Python files after staging the new sources.
+- Repository policy: passed for all 167 tracked paths after staging the new sources.
 - Temporary clean-clone install, build, tests, demo, vectors, fixture certificate, and policy audit: passed.
 
 ## Known failures
@@ -74,7 +78,7 @@
 - The simulator is development-only and is not hardware attestation.
 - The authoritative replay database, WAL, containing directory, configuration, backups, and rollback protection remain trusted. Deletion or restoration of old state can erase consumption history, and records are not yet compacted. The portable same-user process fallback does not enforce filesystem isolation between executor and authority paths.
 - TPM enrollment, endorsement validation, physical provenance, and fleet measurement policy are incomplete.
-- The evidence recorder is logically separate but remains on the same host; it is not physically one-way or independently administered.
+- Signer, recorder, and certificate mutations are authenticated, and their private seeds are outside JSON configuration, but the development harness provisions all clients, services, files, and storage under one host account. It is not independently administered, HSM-backed, physically one-way, or protected from same-user process/file access. Authentication does not make a dishonest authorized coordinator truthful.
 - Tests are project-authored and automated; no external security audit has occurred.
 - No frontier-model containment claim is made.
 
@@ -97,6 +101,7 @@
 - Attestation provider-verifier interfaces, simulator and TPM verifier implementations, Linux TPM bundle signing, and adversarial dispatch tests
 - Attestation nonce authority, persistence interface, verifier call sites, process-boundary context binding, and concurrency tests
 - SQLite nonce persistence, Python capability consumption store, process-harness wiring, multi-process/restart tests, and `docs/REPLAY_STATE.md`
+- Protected-request authentication and replay state, restricted key provisioning, signer/recorder/certificate service wiring, compromise tests, and `docs/PROTECTED_BOUNDARIES.md`
 - Bounded synthetic adversarial-runner interface, manifest schema, safe adapter, public example, documentation, and regression tests
 - Paired experiment validator, JSON schema, explicitly scripted reference comparison, documentation, and tests
 - `docs/DESIGN_DEFENSE.md`
@@ -113,7 +118,7 @@ python scripts/verify_certificate.py .demo/latest-containment-certificate.json
 
 ## Next engineering milestone
 
-Move capability signing and authoritative evidence recording behind separately administered protected boundaries; then add a linearizable multi-host replay backend with authenticated clients and rollback defenses.
+Add a linearizable multi-host replay service interface with authenticated clients, rollback defenses, failover semantics, and conformance tests. Actual external deployment and separate administration require infrastructure outside this repository.
 
 ## Exact next command
 

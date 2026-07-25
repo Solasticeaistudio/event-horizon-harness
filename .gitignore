@@ -27,6 +27,7 @@ coverage/
 .env
 .env.*
 !.env.example
+*.seed
 
 # Test and demo output
 .demo/

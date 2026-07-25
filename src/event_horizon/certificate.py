@@ -39,7 +39,10 @@ class ContainmentCertificateBuilder:
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw,
         )
-        self.key_id = key_id or f"ed25519:{hashlib.sha256(raw_public).hexdigest()[:32]}"
+        actual_key_id = f"ed25519:{hashlib.sha256(raw_public).hexdigest()[:32]}"
+        if key_id is not None and key_id != actual_key_id:
+            raise ValueError("certificate key_id does not match the signing key")
+        self.key_id = actual_key_id
 
     @property
     def public_key_pem(self) -> str:

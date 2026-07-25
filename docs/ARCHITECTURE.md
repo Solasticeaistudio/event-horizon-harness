@@ -10,27 +10,30 @@ Intent Canonicalizer ----> Executor Attestation verifier
       |                              |
       +--------> guardian quorum <---+
                          |
+              authenticated request
                          v
-              Evidence Signing / broker
+              Capability Signer / broker
                          |
-                 exact capability
+                  exact capability
                          v
                 sacrificial executor
 
-Every transition ----> independent logical evidence recorder
+Every transition ----> authenticated evidence append
+                                      |
+                         independent logical evidence recorder
                                       |
                                       v
                          Evidence Chain Verification
 ```
 
-Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes communicate over stdin/stdout pipes using the same minimal protocol: four-byte big-endian length followed by canonical UTF-8 JSON. The protocol rejects duplicate keys, noncanonical encodings, unknown message types or fields, excessive bytes, strings, collections or nesting, expired deadlines, and excess requests.
+Each named box is a separate OS process in `ProcessSeparatedHarness`. Processes communicate over stdin/stdout pipes using the same minimal protocol: four-byte big-endian length followed by canonical UTF-8 JSON. The protocol rejects duplicate keys, noncanonical encodings, unknown message types or fields, excessive bytes, strings, collections or nesting, expired deadlines, and excess requests. Signer, recorder, and certificate mutations additionally require an audience-bound Ed25519 client authorization over the exact RPC envelope and a durable one-use authorization nonce.
 
 ## Authority flow
 
 1. The Intent Canonicalizer parses and canonicalizes a typed request. It has no tool registry, signing key, network client, or execution authority.
 2. Executor Attestation verifies a verifier-issued one-time nonce, registered device/AK identity, signed measurement evidence, freshness, PCR selection, and policy. It returns evidence, never authorization.
 3. The Static Policy Guardian, Executor Attestation Guardian, Lineage Budget Guardian, and Behavioral Transition Guardian each evaluate the same request. One permissive guardian cannot override another veto or widen static policy.
-4. The broker asks the isolated signer to mint a short-lived capability for the exact canonical request digest.
+4. The broker presents a fresh authenticated request to the isolated signer, which independently revalidates the guardian aggregate and attestation binding before minting a short-lived capability for the exact canonical request digest.
 5. The authority-side broker atomically burns each capability before dispatch. The executor receives the public verification key, expected bindings, and a separate defense-in-depth replay database—never the signing key or authoritative replay database—and rechecks every binding before one pre-registered operation.
 6. The independent logical evidence recorder returns a signed receipt for every fixed-size event envelope. Evidence Chain Verification signs a certificate only after recorder verification and verified teardown.
 
@@ -47,14 +50,14 @@ Guardian combination is unanimity with mandatory identities, not majority voting
 | Protocol codec/schema | Canonical parsing and bounds | Policy, keys, execution |
 | Executor Attestation verifier | Identity and measurement decision | Authorization and capability key |
 | Static Policy Guardian and quorum coordinator | Subtractive policy and veto combination | Execution and signing key |
-| Signer/broker | Exact capability minting and redemption state | Workload code and arbitrary connectors |
+| Signer/broker and client authenticator | Exact capability minting, caller identity, and redemption state | Workload code and arbitrary connectors |
 | Executor verifier/dispatcher | Binding checks and fixed operations | Capability private key and ambient credentials |
-| Independent logical evidence recorder | Ordered authoritative evidence and receipts | Workload execution authority |
-| Evidence Chain Verification | Final evidence-domain validation and signature | Capability minting and workload access |
+| Independent logical evidence recorder | Authenticated append, ordered evidence, and receipts | Workload execution authority or source truthfulness |
+| Evidence Chain Verification | Authenticated construction, final evidence-domain validation, and signature | Capability minting and workload access |
 | Firecracker, host kernel, KVM, guest image, watchdog | Hardware cell isolation and teardown in KVM mode | External service credentials |
 | TPM, AK, `tpm2-tools`, Executor Attestation parser | Hardware identity/measurement evidence in TPM mode | Action authorization |
 
-The default local topology stores authoritative nonce and broker consumption state in one SQLite database outside the executor and executor consumption in a separate SQLite database. Conditional transitions are durable across cooperating process restarts on one host. The files, WALs, namespace/domain configuration, rollback protection, and host filesystem remain trusted; see [REPLAY_STATE.md](REPLAY_STATE.md).
+The default local topology stores authoritative nonce, protected-request, and broker consumption state in SQLite outside the executor and executor consumption in a separate SQLite database. Conditional transitions are durable across cooperating process restarts on one host. Capability, recorder, and certificate seeds are loaded from distinct non-inline files. The files, authorized-client keys, WALs, namespace/domain configuration, rollback protection, and host filesystem remain trusted; see [REPLAY_STATE.md](REPLAY_STATE.md) and [PROTECTED_BOUNDARIES.md](PROTECTED_BOUNDARIES.md).
 
 The model, hostile executor contents, synthetic services, local audit decoy, model-based guardian, and human-facing output are untrusted. Development deployments currently run the seven trusted processes on one host; distinct processes reduce key exposure and confused-deputy paths but do not make a compromised host kernel trustworthy.
 

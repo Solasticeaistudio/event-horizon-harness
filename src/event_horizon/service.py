@@ -22,6 +22,11 @@ from .guardians import LineageBudgetGuardian, PolicyGuardian, SequenceGuardian
 from .models import ActionRequest, GuardianDecision, IssuedCapability, ValidationError
 from .policy import OperationRule, StaticPolicy
 from .protocol import MessageSpec, ProtocolError, StrictRpcServer
+from .protected_boundary import (
+    ProtectedRequestVerifier,
+    SqliteAuthorizationReplayStore,
+    load_private_seed,
+)
 from .recorder import ExternalRecorder
 from .replay_state import SqliteCapabilityConsumptionStore
 
@@ -41,6 +46,31 @@ def _load_config(path: Path, role: str, fields: set[str]) -> dict[str, Any]:
     if payload['role'] != role:
         raise RuntimeError('service role does not match configuration')
     return payload
+
+
+PROTECTED_CONFIG_FIELDS = {
+    'authorized_client_public_key',
+    'authorized_client_key_id',
+    'authorization_replay_database',
+    'authorization_namespace',
+}
+
+
+def _protected_authorizer(
+    config: Mapping[str, Any],
+    audience: str,
+) -> ProtectedRequestVerifier:
+    replay_store = SqliteAuthorizationReplayStore(
+        config['authorization_replay_database'],
+        namespace=config['authorization_namespace'],
+        audience=audience,
+    )
+    return ProtectedRequestVerifier(
+        config['authorized_client_public_key'],
+        config['authorized_client_key_id'],
+        audience,
+        replay_store,
+    )
 
 
 def _action(value: Any) -> ActionRequest:
@@ -278,16 +308,13 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
         config_path,
         'signer',
         {
-            'ttl_seconds', 'signing_seed_hex', 'replay_database',
+            'ttl_seconds', 'signing_key_path', 'replay_database',
             'replay_namespace', 'consumption_domain',
+            *PROTECTED_CONFIG_FIELDS,
         },
     )
-    try:
-        signing_seed = bytes.fromhex(config['signing_seed_hex'])
-    except (TypeError, ValueError) as exc:
-        raise RuntimeError('capability signing seed is invalid') from exc
-    if len(signing_seed) != 32:
-        raise RuntimeError('capability signing seed must be exactly 32 bytes')
+    signing_seed = load_private_seed(config['signing_key_path'])
+    request_authorizer = _protected_authorizer(config, 'capability-signer')
     consumption_store = SqliteCapabilityConsumptionStore(
         config['replay_database'],
         namespace=config['replay_namespace'],
@@ -374,10 +401,20 @@ def _signer_specs(config_path: Path) -> dict[str, MessageSpec]:
                 **_info('signer'),
                 'key_id': broker.key_id,
                 'public_key_pem': broker.public_key_pem,
+                'key_storage': 'restricted-file-development',
+                'request_authentication': 'Ed25519',
             },
         ),
-        'issue': MessageSpec(frozenset({'request', 'guardian_result', 'attestation'}), issue),
-        'consume': MessageSpec(frozenset({'request', 'capability', 'attestation'}), consume),
+        'issue': MessageSpec(
+            frozenset({'request', 'guardian_result', 'attestation'}),
+            issue,
+            request_authorizer.authorize,
+        ),
+        'consume': MessageSpec(
+            frozenset({'request', 'capability', 'attestation'}),
+            consume,
+            request_authorizer.authorize,
+        ),
     }
 
 
@@ -456,11 +493,13 @@ def _executor_specs(config_path: Path) -> dict[str, MessageSpec]:
 
 
 def _recorder_specs(config_path: Path) -> dict[str, MessageSpec]:
-    config = _load_config(config_path, 'recorder', {'path', 'signing_seed_hex', 'max_event_bytes'})
-    try:
-        signing_seed = bytes.fromhex(config['signing_seed_hex'])
-    except (TypeError, ValueError) as exc:
-        raise RuntimeError('recorder signing seed is invalid') from exc
+    config = _load_config(
+        config_path,
+        'recorder',
+        {'path', 'signing_key_path', 'max_event_bytes', *PROTECTED_CONFIG_FIELDS},
+    )
+    signing_seed = load_private_seed(config['signing_key_path'])
+    request_authorizer = _protected_authorizer(config, 'evidence-recorder')
     recorder = ExternalRecorder(
         config['path'],
         signing_seed,
@@ -493,19 +532,34 @@ def _recorder_specs(config_path: Path) -> dict[str, MessageSpec]:
         }
 
     return {
-        'info': MessageSpec(frozenset(), lambda _body: {**_info('recorder'), **status()}),
+        'info': MessageSpec(
+            frozenset(),
+            lambda _body: {
+                **_info('recorder'),
+                **status(),
+                'key_storage': 'restricted-file-development',
+                'request_authentication': 'Ed25519',
+            },
+        ),
         'append': MessageSpec(
             frozenset({'event_type', 'payload', 'source_id', 'source_sequence'}),
             append,
+            request_authorizer.authorize,
         ),
         'verify': MessageSpec(frozenset(), lambda _body: status()),
     }
 
 
 def _certificate_specs(config_path: Path) -> dict[str, MessageSpec]:
-    config = _load_config(config_path, 'certificate', {'recorder_path'})
+    config = _load_config(
+        config_path,
+        'certificate',
+        {'recorder_path', 'signing_key_path', *PROTECTED_CONFIG_FIELDS},
+    )
+    signing_seed = load_private_seed(config['signing_key_path'])
+    request_authorizer = _protected_authorizer(config, 'certificate-signer')
     recorder_view = ExternalRecorder(config['recorder_path'], b'R' * 32)
-    builder = ContainmentCertificateBuilder(recorder_view)
+    builder = ContainmentCertificateBuilder(recorder_view, signing_seed)
 
     def build(body: dict[str, Any]) -> Mapping[str, Any]:
         if not isinstance(body['assertions'], dict) or not isinstance(body['evidence'], dict):
@@ -539,11 +593,14 @@ def _certificate_specs(config_path: Path) -> dict[str, MessageSpec]:
                 **_info('certificate'),
                 'key_id': builder.key_id,
                 'public_key_pem': builder.public_key_pem,
+                'key_storage': 'restricted-file-development',
+                'request_authentication': 'Ed25519',
             },
         ),
         'build': MessageSpec(
             frozenset({'run_id', 'session_id', 'assertions', 'evidence'}),
             build,
+            request_authorizer.authorize,
         ),
         'verify': MessageSpec(frozenset({'certificate'}), verify),
     }

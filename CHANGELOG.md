@@ -9,6 +9,8 @@ All notable public-artifact changes are recorded here. The project follows seman
 - Provider-specific Executor Attestation verification with strict simulator and TPM trust separation.
 - Context-bound, atomic one-use nonce authority and concurrency tests.
 - Durable SQLite nonce and capability consumption across cooperating local verifier and broker processes, including restart, contention, corruption, and schema-version tests.
+- Ed25519-authenticated signer, recorder, and certificate mutation requests with durable one-use authorization nonces.
+- Restricted file-backed development keys for capability, receipt, and certificate signing, with restart continuity and no inline private seeds.
 - Fresh per-session development attestation with no executor-ID success cache.
 - Strict capability schemas, canonicalization defenses, public verification vectors, and atomic replay tests.
 - Guardian compromise and coordination-failure injection tests.

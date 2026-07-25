@@ -19,6 +19,8 @@ Release title: **Event Horizon v0.4.0 — Executor Attestation and Public-Artifa
 - [x] Every accepted attestation nonce is authority-issued, context-bound, durable, and atomically one-use across cooperating local verifier processes.
 - [x] Development attestation creates a fresh proof for every session and has no success cache.
 - [x] Capability schemas, canonicalization, exact bindings, Ed25519 signatures, expiration, and durable cross-process replay checks pass.
+- [x] Signer, recorder, and certificate mutations require audience-bound Ed25519 client authorization with durable one-use nonces.
+- [x] Capability, recorder, and certificate seeds are absent from JSON configuration and survive restart through restricted development files.
 - [x] Guardian compromise, timeout, malformed-output, stale-response, policy-version, and static-policy failure tests pass.
 - [x] Demo replay, widening, executor transfer, prohibited egress, evidence tampering, teardown, and certificate checks pass.
 
@@ -36,7 +38,7 @@ Release title: **Event Horizon v0.4.0 — Executor Attestation and Public-Artifa
 - [x] `npm ci`
 - [x] `npm run build` for all eight TypeScript workspaces
 - [x] 46 portable TypeScript tests passed; one real Linux TPM integration test skipped by design
-- [x] 76 Python tests passed
+- [x] 83 Python tests passed
 - [x] All eight fixed capability vectors passed
 - [x] PowerShell demo produced the documented result
 - [x] Generated Ed25519 containment certificate verified independently

@@ -43,6 +43,6 @@ python -m event_horizon.adversarial_demo --workdir .demo/adversarial
 python scripts/run_firecracker_demo.py --fallback process
 ```
 
-The public demo prints all seven process IDs, probes the hostile executor for credentials/private keys, proves one exact capability works once, proves replay/widening/egress fail, restarts the recorder, tears down the executor, and emits a signed certificate. Nonce and capability consumption use local durable SQLite state outside the hostile executor; replay remains denied across tested service restarts. The scripted adversarial demo must report all ten synthetic campaigns contained.
+The public demo prints all seven process IDs, probes the hostile executor for credentials/private keys, proves one exact capability works once, proves replay/widening/egress fail, restarts the recorder, tears down the executor, and emits a signed certificate. Nonce, capability, and protected-request consumption use local durable SQLite state outside executor configuration; replay remains denied across tested service restarts. Capability, recorder, and certificate mutations are Ed25519 client-authenticated, and their service signing seeds are absent from JSON configuration. The scripted adversarial demo must report all ten synthetic campaigns contained.
 
 See `docs/ATTESTATION_TPM.md` and `docs/FIRECRACKER.md` before making TPM or VM-isolation claims.

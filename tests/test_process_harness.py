@@ -48,6 +48,62 @@ class ProcessHarnessTests(unittest.TestCase):
         self.assertEqual(probe['requested_environment_hits'], [])
         self.assertFalse(probe['private_key_material_present'])
         self.assertEqual(probe['signer_key_id'], self.harness.service_info['signer']['key_id'])
+        executor_config = json.loads(
+            self.harness.config_paths['executor'].read_text(encoding='utf-8')
+        )
+        for role, key_path in (
+            ('signer', self.harness.capability_key_path),
+            ('recorder', self.harness.recorder_key_path),
+            ('certificate', self.harness.certificate_key_path),
+        ):
+            config = json.loads(self.harness.config_paths[role].read_text(encoding='utf-8'))
+            self.assertNotIn('signing_seed_hex', config)
+            self.assertEqual(config['signing_key_path'], str(key_path))
+            self.assertNotIn('signing_key_path', executor_config)
+            self.assertEqual(
+                self.harness.service_info[role]['request_authentication'],
+                'Ed25519',
+            )
+
+    def test_protected_mutation_endpoints_require_authenticated_requests(self):
+        protected_calls = (
+            (
+                'signer',
+                'issue',
+                {'request': {}, 'guardian_result': {}, 'attestation': {}},
+            ),
+            (
+                'signer',
+                'consume',
+                {'request': {}, 'capability': {}, 'attestation': {}},
+            ),
+            (
+                'recorder',
+                'append',
+                {
+                    'event_type': 'unauthorized',
+                    'payload': {},
+                    'source_id': 'coordinator',
+                    'source_sequence': 1,
+                },
+            ),
+            (
+                'certificate',
+                'build',
+                {'run_id': 'unauthorized', 'session_id': 'x', 'assertions': {}, 'evidence': {}},
+            ),
+        )
+        for role, message_type, body in protected_calls:
+            with self.subTest(role=role, message_type=message_type):
+                with self.assertRaises(ProtocolError) as denied:
+                    self.harness.call(
+                        role,
+                        message_type,
+                        body,
+                        authorize=False,
+                    )
+                self.assertEqual(denied.exception.code, 'authorization_required')
+        self.harness.record('authenticated.after-denial', {'ok': True})
 
     def test_exact_capability_succeeds_and_external_broker_denies_replay(self):
         request, capability, attestation = self.issue()
@@ -109,6 +165,14 @@ class ProcessHarnessTests(unittest.TestCase):
         )
         self.assertFalse(direct['success'])
         self.assertIn('replay', direct['error'])
+        with closing(sqlite3.connect(self.harness.authority_replay_path)) as database:
+            protected = dict(database.execute(
+                """
+                SELECT audience, COUNT(*) FROM protected_request_authorizations
+                GROUP BY audience
+                """
+            ).fetchall())
+        self.assertGreaterEqual(protected['capability-signer'], 3)
 
     def test_session_executor_and_attestation_substitution_fail(self):
         request, capability, attestation = self.issue()
@@ -227,6 +291,11 @@ class ProcessHarnessTests(unittest.TestCase):
             {'attestation', 'capability', 'policy', 'image', 'recorder', 'teardown', 'egress'},
         )
         self.assertEqual(certificate['key_id'], self.harness.service_info['certificate']['key_id'])
+        certificate_key = self.harness.service_info['certificate']['key_id']
+        self.assertEqual(
+            self.harness.restart_role('certificate')['key_id'],
+            certificate_key,
+        )
 
 
 if __name__ == '__main__':

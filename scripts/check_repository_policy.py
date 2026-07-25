@@ -12,7 +12,7 @@ FORBIDDEN_PARTS = {
     "node_modules", "__pycache__", ".pytest_cache", "coverage", ".nyc_output",
     "dist", "build",
 }
-FORBIDDEN_SUFFIXES = {".pyc", ".pyo", ".zip", ".key", ".p12", ".pfx"}
+FORBIDDEN_SUFFIXES = {".pyc", ".pyo", ".zip", ".key", ".p12", ".pfx", ".seed"}
 PRIVATE_KEY_PATTERN = re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")
 LEGACY_PATTERN = re.compile(b"hard" + b"proof", re.IGNORECASE)
 LEGACY_ALLOWED = {"CHANGELOG.md", "docs/RENAMING_NOTES.md"}

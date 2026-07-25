@@ -133,6 +133,7 @@ def write_frame(stream: BinaryIO, message: Mapping[str, Any]) -> None:
 class MessageSpec:
     body_fields: frozenset[str]
     handler: Callable[[dict[str, Any]], Mapping[str, Any]]
+    authorizer: Callable[[Mapping[str, Any], Mapping[str, Any]], None] | None = None
 
 
 def request_envelope(
@@ -141,13 +142,17 @@ def request_envelope(
     body: Mapping[str, Any],
     *,
     timeout_seconds: float = 5.0,
+    authorization: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    envelope = {
         'type': message_type,
         'request_id': request_id,
         'deadline_ms': int((time.time() + timeout_seconds) * 1000),
         'body': dict(body),
     }
+    if authorization is not None:
+        envelope['authorization'] = dict(authorization)
+    return envelope
 
 
 def validate_request(
@@ -156,7 +161,8 @@ def validate_request(
     *,
     now_ms: int | None = None,
 ) -> tuple[str, str, dict[str, Any], MessageSpec]:
-    if set(message) != {'type', 'request_id', 'deadline_ms', 'body'}:
+    required_envelope = {'type', 'request_id', 'deadline_ms', 'body'}
+    if not required_envelope.issubset(message):
         raise ProtocolError('unknown_field', 'request envelope fields are invalid')
     message_type = message['type']
     request_id = message['request_id']
@@ -173,6 +179,12 @@ def validate_request(
     spec = specs.get(message_type)
     if spec is None:
         raise ProtocolError('unknown_message_type', f'unknown message type: {message_type}')
+    expected_envelope = set(required_envelope)
+    if spec.authorizer is not None:
+        expected_envelope.add('authorization')
+    if set(message) != expected_envelope:
+        code = 'authorization_required' if spec.authorizer is not None else 'unknown_field'
+        raise ProtocolError(code, 'request envelope fields are invalid')
     if set(body) != spec.body_fields:
         raise ProtocolError('unknown_field', f'{message_type} body fields are invalid')
     current = int(time.time() * 1000) if now_ms is None else now_ms
@@ -180,6 +192,12 @@ def validate_request(
         raise ProtocolError('deadline_exceeded', 'request deadline has expired')
     if deadline_ms > current + MAX_DEADLINE_WINDOW_MS:
         raise ProtocolError('deadline_limit', 'request deadline is too far in the future')
+    if spec.authorizer is not None:
+        authorization = message['authorization']
+        if not isinstance(authorization, dict):
+            raise ProtocolError('authorization_invalid', 'authorization must be an object')
+        unsigned = {key: message[key] for key in ('type', 'request_id', 'deadline_ms', 'body')}
+        spec.authorizer(unsigned, authorization)
     return message_type, request_id, body, spec
 
 

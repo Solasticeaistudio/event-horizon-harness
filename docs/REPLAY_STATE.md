@@ -19,6 +19,10 @@ Consumption succeeds only when the nonce is still `issued`, its context digest m
 
 The authority-side broker and the executor are separate consumption domains. This is intentional: the broker burns the externally presented capability before dispatch, while the executor independently burns the same capability before the operation. Every replica serving one domain must use the same database, namespace, and domain.
 
+## Protected request authorization
+
+Signer, recorder, and certificate mutation requests carry separate signed authorization nonces. `SqliteAuthorizationReplayStore` records `(namespace, audience, nonce)`, the canonical complete-request digest, expiration, and consumption time. Signature, audience, freshness, and request binding are checked before one insert-once transaction burns the nonce. The authority signer uses the authority database; recorder and certificate audiences use a separate logical evidence database.
+
 ## Deployment boundary
 
 The process harness keeps authoritative nonce and broker state in `trusted-control/replay-state.sqlite3`. The executor configuration receives neither that path nor the authority database; it uses a separate defense-in-depth database under `executor-state/`. Exposing the authoritative database to the execution cell would collapse the replay guarantee.

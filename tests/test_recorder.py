@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from event_horizon.certificate import ContainmentCertificateBuilder
 from event_horizon.recorder import ExternalRecorder
 
 
@@ -42,6 +43,12 @@ class RecorderReceiptTests(unittest.TestCase):
             recovered.append('after.restart', {}, source_id='test', source_sequence=2)
             self.assertTrue(recovered.verify()[0])
             self.assertEqual(path.stat().st_size, 2 * 16_384)
+            with self.assertRaisesRegex(ValueError, 'key_id'):
+                ContainmentCertificateBuilder(
+                    recovered,
+                    b'C' * 32,
+                    key_id='ed25519:' + '0' * 32,
+                )
 
 
 if __name__ == '__main__':
