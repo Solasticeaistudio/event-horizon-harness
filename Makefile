@@ -1,9 +1,9 @@
-.PHONY: demo verify-denial test test-security test-policy test-property test-concurrency test-chaos test-canary test-denial-certificates test-behavioral-guardian test-decay
+.PHONY: demo verify-denial test test-security test-policy test-property test-concurrency test-chaos test-canary test-denial-certificates test-behavioral-guardian test-decay test-adversary test-positive-controls adversary-eval literature-check test-hardware-sim
 
 test:
 	python -m unittest discover -s tests -v
 
-test-security: test-policy test-property test-concurrency test-chaos test-canary test-denial-certificates test-behavioral-guardian test-decay
+test-security: test-policy test-property test-concurrency test-chaos test-canary test-denial-certificates test-behavioral-guardian test-decay test-adversary test-positive-controls test-hardware-sim
 
 test-policy:
 	python -m unittest tests.test_task_policy_ceiling tests.test_authoritative_trust -v
@@ -28,6 +28,20 @@ test-behavioral-guardian:
 
 test-decay:
 	python -m unittest tests.test_trust_decay -v
+
+test-adversary:
+	python -m unittest tests.test_adversarial_campaigns tests.test_adversarial_runner_interface tests.test_adaptive_adversary -v
+
+test-positive-controls:
+	python -m unittest tests.test_positive_controls tests.test_concurrent_redemption.ConcurrentRedemptionTests.test_positive_control_detects_non_atomic_double_redemption -v
+
+adversary-eval: test-adversary
+
+literature-check:
+	python scripts/check_literature_feed.py
+
+test-hardware-sim:
+	python -m unittest tests.test_hardware_failsafe -v
 
 demo:
 	npm run build
