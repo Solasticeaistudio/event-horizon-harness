@@ -10,12 +10,13 @@
 
 ## Tests executed
 
-- `python -m unittest discover -s tests -v`: 200 tests passed.
+- `python -m unittest discover -s tests -v`: 203 tests passed, including automatic canary denial-certificate coverage.
 - `python -m ruff check src tests scripts`: passed.
 - `python scripts/lint_python.py`: passed.
 - `python scripts/check_repository_policy.py`: passed.
 - `python scripts/check_literature_feed.py --live`: passed with no source drift; six metadata campaigns remain pending human review.
 - `python scripts/check_formal_model.py`: structural checks passed; TLC skipped because Java and a pinned TLA jar are unavailable on this host.
+- `python scripts/generate_security_report.py`: deterministic available checks passed; report status is `PASS WITH UNAVAILABLE CHECKS` because TLC and physical hardware are unavailable.
 - TypeScript `npm ci`, build, typecheck, tests, and remote replay interoperability passed in the preceding release verification.
 
 ## Known failures
