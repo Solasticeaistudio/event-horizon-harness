@@ -151,7 +151,8 @@ class OpenAICompatibleAdversaryModel:
         observations: Sequence[Observation],
         sequence: int,
     ) -> ActionProposal:
-        endpoint = self.config.base_url.rstrip("/") + "/v1/chat/completions"
+        base = self.config.base_url.rstrip("/")
+        endpoint = base + ("/chat/completions" if base.endswith("/v1") else "/v1/chat/completions")
         headers = {"Content-Type": "application/json"}
         if self.config.api_key:
             headers["Authorization"] = f"Bearer {self.config.api_key}"

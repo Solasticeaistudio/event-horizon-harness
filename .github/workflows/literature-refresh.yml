@@ -1,0 +1,23 @@
+name: literature-refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '31 4 * * 1'
+
+jobs:
+  review-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e .
+      - run: python scripts/check_literature_feed.py --live --output artifacts/literature-drift.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: literature-review-report
+          path: artifacts/literature-drift.json

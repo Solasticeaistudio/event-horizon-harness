@@ -42,6 +42,14 @@ A compromised dynamic guardian that approves everything cannot widen the request
 
 The Static Policy Guardian, coordinator, broker, and their configuration are trusted computing base components. A compromise that changes the static policy and its expected digest can change the ceiling; that is not prevented by quorum approvals.
 
+## Adaptive governance, canaries, decay, and evidence
+
+The task-policy synthesizer accepts untrusted natural language, templates, traces, and optional model output. `TaskPolicyCompiler` validates the strict candidate, rejects unknown fields, intersects it with global/tenant/environment/trust constraints, and emits the only ceiling shape accepted by the broker. The synthesizer has no signer and cannot mint capabilities. Shadow and evaluation modes compute proposals without changing enforcement.
+
+The broker's effective authority is the intersection of global maximum, compiled task ceiling, request, signed claims, provider-attested trust, guardian reductions, current policy, and current decay. The behavioral guardian and decay engine return reductions only; malformed or unavailable state denies. A canary is a disjoint signed artifact checked before normal effect execution and can never reach an effect path.
+
+Denial certificates are scoped receipts. They bind request, policy-ceiling, compiler, trust, guardian, decay, build, signer, and evidence-chain digests. Only pre-effect or post-validation denial states can make a definitive no-effect statement; crashes, lost responses, and reconciliation states remain indeterminate. The hardware-failsafe implementation is a simulator with an independent verification-key model and explicit re-arm; no physical isolation is claimed.
+
 ## 8. What happens if the static policy guardian fails?
 
 Issuance is denied. The static guardian is required exactly once, must approve the same request digest, and must report the coordinator's expected policy digest and a valid output envelope. Absence, timeout, exception, malformed output, denial, or inconsistent version is a veto. There is no cached approval or dynamic fallback.

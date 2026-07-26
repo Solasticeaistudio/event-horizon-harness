@@ -33,6 +33,7 @@ coverage/
 .demo/
 coverage.xml
 .coverage
+artifacts/reports/
 
 # Internal development material is not part of the public artifact
 internal/

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Solasticeaistudio/event-horizon-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/Solasticeaistudio/event-horizon-harness/actions/workflows/ci.yml)
 
-Event Horizon is a research harness for testing whether a fully compromised autonomous-agent execution environment can convert local control into transferable authority.
+Event Horizon is a research harness for testing whether a fully compromised autonomous-agent execution environment can convert local control into transferable authority. It computes a task-specific least-authority ceiling and then enforces that ceiling through cryptographically bound, attestation-aware, subtract-only capabilities.
 
 The tested claim is narrower than general containment: compromise inside the hostile execution cell must not grant transferable authority, unrestricted egress, durable persistence, cross-session influence, or control over authoritative evidence.
 
@@ -16,10 +16,12 @@ The tested claim is narrower than general containment: compromise inside the hos
 - Four required guardians form a unanimity veto. Missing, malformed, stale, inconsistent, crashed, or timed-out decisions deny execution.
 - An independent logical evidence recorder hash-chains events and signs receipts. A detached Ed25519 containment certificate covers the recorded evidence domains and verified teardown.
 - Fixed adversarial vectors and compromise-injection tests exercise parser disagreement, substitution, replay, guardian failure, evidence tampering, and transfer attempts.
+- A deterministic task-policy synthesizer and trusted compiler size authority from task semantics while keeping the adaptive proposal non-authoritative.
+- Canary capabilities, behavioral boundary-probing detection, monotonic trust decay, signed denial certificates, bounded adaptive-adversary interfaces, and a hardware-failsafe simulator provide additional subtract-only controls and evidence.
 
 ## What it does not demonstrate
 
-This repository does not demonstrate containment of a frontier model, production Firecracker isolation, production TPM enrollment or hardware provenance, resistance to host-kernel compromise, separately administered or hardware-backed signing, physically one-way evidence storage, a deployed multi-host replay backend, or an independent security audit. The scripted adversary uses harmless synthetic actions; it is not a real offensive campaign result.
+This repository does not demonstrate containment of a frontier model, production Firecracker isolation, production TPM enrollment or hardware provenance, resistance to host-kernel compromise, separately administered or hardware-backed signing, physically one-way evidence storage, a deployed multi-host replay backend, a physical fail-safe installation, TLC model checking on this host, or an independent security audit. The default adversary is scripted and synthetic; a real model endpoint is optional and its self-report is never trusted.
 
 See [Known limitations](KNOWN_LIMITATIONS.md) for the complete claim boundary.
 
@@ -28,6 +30,8 @@ See [Known limitations](KNOWN_LIMITATIONS.md) for the complete claim boundary.
 > Guardians may only subtract authority. Dynamic approval can never exceed the deterministic static policy ceiling.
 
 Every issued capability is the intersection of the canonical request and deterministic static policy, further restricted by all guardian vetoes. A model, guardian, approval service, or human decision cannot add operations, resources, arguments, identities, duration, egress, or output beyond that ceiling. Static-policy failure denies capability issuance.
+
+Effective authority is the intersection of `GlobalMaximumAuthority`, `TaskPolicyCeiling`, `RequestedAuthority`, `SignedAuthority`, `ProviderAttestedAuthority`, `GuardianPermittedAuthority`, `CurrentPolicyAuthority`, and `CurrentDecayAuthority`.
 
 ## Threat model
 
@@ -44,7 +48,13 @@ Untrusted agent
 Intent Canonicalizer
     |
     v
-Static Policy Ceiling
+Task Classification
+    |
+    v
+Adaptive Task Policy Ceiling
+    |
+    v
+Trusted Policy Compiler
     |
     +--> Executor Attestation Guardian
     +--> Lineage Budget Guardian
@@ -73,7 +83,7 @@ Requirements: Python 3.11+, Node.js 20+, npm, and GNU Make on POSIX systems.
 
 ```bash
 npm ci
-python -m pip install -e .
+python -m pip install -e ".[test]"
 make demo
 ```
 
@@ -115,6 +125,7 @@ python scripts/verify_remote_replay_interop.py
 python scripts/verify_capability_vectors.py
 python scripts/verify_certificate.py .demo/latest-containment-certificate.json
 python scripts/check_repository_policy.py
+python scripts/generate_security_report.py
 ```
 
 The exact current test counts are recorded in [STATUS.md](STATUS.md). The real-TPM integration test is opt-in on a configured Linux host. For an isolated clone, run `scripts/verify-clean-install.sh` or `scripts/verify-clean-install.ps1`.

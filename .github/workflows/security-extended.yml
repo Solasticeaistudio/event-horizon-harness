@@ -1,0 +1,31 @@
+name: security-extended
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 6'
+
+jobs:
+  deterministic-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: python -m pip install -e ".[test]"
+      - run: npm run build
+      - run: npm test
+      - run: python scripts/generate_security_report.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-report
+          path: artifacts/reports/
+

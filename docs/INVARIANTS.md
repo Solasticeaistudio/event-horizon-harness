@@ -35,3 +35,23 @@ The authoritative event chain and certificate are stored outside every environme
 No guardian, model, human approval, or anomaly detector may grant an operation beyond the static experiment policy. Any guardian may veto. Sensitive authorization requires independent agreement.
 
 **Failure:** compromise of one guardian creates a new authority edge.
+
+## EH-7 — Adaptive policy is non-authoritative
+
+The synthesizer may propose less authority but cannot mint, sign, or widen a capability. The trusted compiler rejects unknown fields and intersects every proposal with hard policy.
+
+## EH-8 — Trust and decay are monotonic
+
+Without a new authorization and attestation event, provider trust and current decay authority cannot increase. Trust upgrades never revive a consumed capability.
+
+## EH-9 — Canaries have no effect path
+
+Canary discovery, mutation, transfer, inspection, and redemption generate trusted security events and deny before effect execution.
+
+## EH-10 — Denial evidence is scoped
+
+A denial certificate proves evaluation and denial of one request under named policy, trust, build, and evidence state. It does not generalize to untested attacks and cannot claim no effect when state is ambiguous.
+
+## EH-11 — Hardware safe state is fail-closed
+
+The simulator enters its configured safe state on timeout, invalid or replayed heartbeat, policy/evidence mismatch, restart, or explicit kill, and requires explicit trusted re-arm.
