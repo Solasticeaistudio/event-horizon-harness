@@ -10,7 +10,7 @@
 
 ## Tests executed
 
-- `python -m unittest discover -s tests -v`: 179 tests passed before the final adaptive/hardware additions; targeted additions passed (adaptive 4, positive controls 2, literature 4, hardware 10, formal structure 1).
+- `python -m unittest discover -s tests -v`: 200 tests passed.
 - `python -m ruff check src tests scripts`: passed.
 - `python scripts/lint_python.py`: passed.
 - `python scripts/check_repository_policy.py`: passed.
@@ -21,6 +21,7 @@
 ## Known failures
 
 - No portable test failure is known. Full post-addition `make security-report` and clean-install verification remain to be run after documentation/CI edits.
+- GNU Make is not installed on this Windows host; the individual commands and `python scripts/generate_security_report.py` were run successfully.
 - Physical hardware-in-the-loop, production TPM, Firecracker, and TLC execution are unavailable in this environment.
 
 ## Security limitations
