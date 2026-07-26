@@ -13,6 +13,7 @@ from event_horizon.canary import (
     canary_ids_do_not_overlap,
 )
 from event_horizon.canonical import digest
+from event_horizon.denial_certificate import DenialCertificateBuilder
 from event_horizon.executor import SacrificialExecutor
 from event_horizon.models import ActionRequest, IssuedCapability, ValidationError
 from event_horizon.recorder import ExternalRecorder
@@ -109,7 +110,9 @@ class CanaryCapabilityTests(unittest.TestCase):
             "redemption", self.canary, request=transferred, now_ms=NOW_MS
         )
         event_types = [event["event_type"] for event in self.recorder.events()]
-        self.assertEqual(event_types, ["canary.mutation", "canary.transfer"])
+        self.assertEqual(event_types, [
+            "canary.mutation", "denial.evaluated", "canary.transfer", "denial.evaluated",
+        ])
 
     def test_canary_cannot_be_converted_to_real_capability_or_collide(self) -> None:
         with self.assertRaisesRegex(ValidationError, "envelope"):
@@ -147,16 +150,69 @@ class CanaryCapabilityTests(unittest.TestCase):
             self.verifier.redeem(self.canary, self.request, now_ms=NOW_MS)
         events = self.recorder.events()
         self.assertEqual([item["event_type"] for item in events], [
-            "canary.discovery", "canary.redemption"
+            "canary.discovery", "denial.evaluated", "canary.redemption", "denial.evaluated"
         ])
-        self.assertTrue(all(item["payload"]["campaign_id"] == "campaign-positive-control" for item in events))
-        self.assertTrue(all(item["payload"]["evidence_hash"] for item in events))
+        canary_events = [item for item in events if item["event_type"].startswith("canary.")]
+        self.assertTrue(all(item["payload"]["campaign_id"] == "campaign-positive-control" for item in canary_events))
+        self.assertTrue(all(item["payload"]["evidence_hash"] for item in canary_events))
 
     def test_legitimate_default_harness_has_no_canary_seed(self) -> None:
         self.assertFalse(any(
             event["event_type"].startswith("canary.") for event in self.recorder.events()
         ))
         self.assertNotEqual(digest(self.canary.claims.to_dict()), self.canary.claims.representation_digest)
+
+    def test_every_trusted_canary_path_emits_a_signed_denial_certificate(self) -> None:
+        builder = DenialCertificateBuilder(self.recorder, b"canary-denial-signer-key-material!!")
+        verifier = CanaryVerifier(
+            self.authority.public_key_pem, self.authority.key_id, self.recorder,
+            tenant="tenant-a", environment="test-range", clock_ms=lambda: NOW_MS,
+            denial_certificate_builder=builder,
+        )
+        verifier.record_interaction("discovery", self.canary, now_ms=NOW_MS)
+        verifier.record_interaction(
+            "inspection", self.canary, representation={"scope": "changed"}, now_ms=NOW_MS
+        )
+        transferred = ActionRequest(
+            "transfer-cert", "other-session", "agent-a", "object.read", "decoy-cache",
+            "other-executor", {}, "transfer",
+        )
+        verifier.record_interaction("transfer", self.canary, request=transferred, now_ms=NOW_MS)
+        with self.assertRaises(CanaryError):
+            verifier.redeem(self.canary, self.request, now_ms=NOW_MS)
+        certificates = [
+            event for event in self.recorder.events()
+            if event["event_type"] == "denial.evaluated"
+        ]
+        self.assertEqual(len(certificates), 4)
+        self.assertTrue(all(event["payload"]["effect_state"] == "denied-before-effect" for event in certificates))
+
+    def test_ambiguous_canary_outcome_is_not_known_no_effect(self) -> None:
+        builder = DenialCertificateBuilder(self.recorder, b"canary-ambiguous-signer-key-mat!!")
+        verifier = CanaryVerifier(
+            self.authority.public_key_pem, self.authority.key_id, self.recorder,
+            tenant="tenant-a", environment="test-range", clock_ms=lambda: NOW_MS,
+            denial_certificate_builder=builder,
+        )
+        verifier.record_interaction(
+            "redemption", self.canary, request=self.request, now_ms=NOW_MS,
+            effect_state="reconciliation-required",
+        )
+        denial = [e for e in self.recorder.events() if e["event_type"] == "denial.evaluated"][0]
+        self.assertEqual(denial["payload"]["effect_state"], "reconciliation-required")
+        self.assertIsNone(denial["payload"]["no_authorized_effect_committed"])
+
+    def test_certificate_generation_failure_fails_closed_and_records_event(self) -> None:
+        builder = DenialCertificateBuilder(self.recorder, b"canary-failure-signer-key-material")
+        verifier = CanaryVerifier(
+            self.authority.public_key_pem, self.authority.key_id, self.recorder,
+            tenant="tenant-a", environment="test-range", clock_ms=lambda: NOW_MS,
+            denial_certificate_builder=builder,
+            denial_certificate_context={"policy_digest": "not-a-digest"},
+        )
+        with self.assertRaisesRegex(CanaryError, "certificate generation failed"):
+            verifier.record_interaction("discovery", self.canary, now_ms=NOW_MS)
+        self.assertTrue(any(e["event_type"] == "canary.certificate-failure" for e in self.recorder.events()))
 
 
 if __name__ == "__main__":

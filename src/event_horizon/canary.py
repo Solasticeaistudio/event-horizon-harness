@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from .broker import capability_key_id
 from .canonical import canonical_bytes, digest
+from .denial_certificate import DenialCertificateBuilder
 from .models import ActionRequest, ValidationError
 from .recorder import ExternalRecorder
 
@@ -211,6 +212,8 @@ class CanaryVerifier:
         environment: str,
         response_policy: CanaryResponsePolicy = CanaryResponsePolicy(),
         clock_ms: Callable[[], int] | None = None,
+        denial_certificate_builder: DenialCertificateBuilder | None = None,
+        denial_certificate_context: Mapping[str, str] | None = None,
     ):
         if isinstance(public_key, Ed25519PublicKey):
             loaded = public_key
@@ -226,6 +229,81 @@ class CanaryVerifier:
         self.environment = _text(environment, "canary verifier environment")
         self.response_policy = response_policy
         self._clock_ms = clock_ms or (lambda: int(time.time() * 1000))
+        # Every trusted canary interaction gets a certificate by default. A caller may
+        # inject a separately provisioned builder, but cannot disable evidence emission.
+        self.denial_certificate_builder = denial_certificate_builder or DenialCertificateBuilder(recorder)
+        self.denial_certificate_context = dict(denial_certificate_context or {})
+
+    def _emit_denial_certificate(
+        self,
+        claims: CanaryClaims,
+        payload: Mapping[str, Any],
+        request: ActionRequest | None,
+        effect_state: str,
+    ) -> dict[str, Any] | None:
+        if self.denial_certificate_builder is None:
+            return None
+        request_digest = request.request_digest if request is not None else digest({
+            "canary_id": claims.canary_id,
+            "event_type": payload["attempted_action"],
+            "resource": payload["attempted_resource"],
+        })
+        context = self.denial_certificate_context
+        defaults = {
+            "task_id": f"canary:{claims.campaign_id}",
+            "workload_identity_hash": digest({"workload_id": claims.workload_id}),
+            "technique_classification": "canary-probe",
+            "policy_digest": digest({"policy_version": claims.policy_version}),
+            "policy_ceiling_digest": digest({"policy_version": claims.policy_version, "ceiling": "none"}),
+            "synthesizer_version": "not-applicable",
+            "compiler_version": "canary-boundary-v1",
+            "provider_attestation_digest": digest({"trust": "not-authority"}),
+            "guardian_state_digest": digest({"responses": list(self.response_policy.actions)}),
+            "decay_state_digest": digest({"authority": "none"}),
+            "code_commit": "canary-runtime-v1",
+            "build_identifier": "canary-runtime-v1",
+            "environment_identifier": claims.environment,
+        }
+        values = {**defaults, **context}
+        try:
+            return self.denial_certificate_builder.build(
+                attempt_id=f"canary-attempt:{claims.canary_id}:{payload['timestamp_ms']}",
+                task_id=values["task_id"],
+                session_id=claims.session_id,
+                workload_identity_hash=values["workload_identity_hash"],
+                technique_classification=values["technique_classification"],
+                request_digest=request_digest,
+                canonical_request_digest=request_digest,
+                requested_authority={"canary": True, "action": payload["attempted_action"]},
+                effective_authority={"canary": False, "responses": list(self.response_policy.actions)},
+                denial_reason_code="CANARY_NON_EFFECT",
+                effect_state=effect_state,
+                policy_version=claims.policy_version,
+                policy_digest=values["policy_digest"],
+                policy_ceiling_digest=values["policy_ceiling_digest"],
+                synthesizer_version=values["synthesizer_version"],
+                compiler_version=values["compiler_version"],
+                provider_attestation_digest=values["provider_attestation_digest"],
+                guardian_state_digest=values["guardian_state_digest"],
+                decay_state_digest=values["decay_state_digest"],
+                code_commit=values["code_commit"],
+                build_identifier=values["build_identifier"],
+                environment_identifier=values["environment_identifier"],
+                campaign_id=claims.campaign_id,
+                denial_timestamp_ms=payload["timestamp_ms"],
+            )
+        except Exception as exc:
+            try:
+                self.recorder.append("canary.certificate-failure", {
+                    "canary_id": claims.canary_id,
+                    "tenant": claims.tenant,
+                    "session_id": claims.session_id,
+                    "error_type": type(exc).__name__,
+                    "effect_state": effect_state,
+                })
+            except Exception:
+                pass
+            raise CanaryError("canary denial certificate generation failed") from exc
 
     def _verified(self, capability: CanaryCapability, now_ms: int) -> CanaryClaims:
         parsed = CanaryCapability.from_dict(capability.to_dict())
@@ -252,6 +330,7 @@ class CanaryVerifier:
         representation: Mapping[str, Any] | None = None,
         mutation_diff: Mapping[str, Any] | None = None,
         now_ms: int | None = None,
+        effect_state: str = "denied-before-effect",
     ) -> dict[str, Any]:
         if event_type not in CANARY_EVENT_TYPES:
             raise CanaryError("unsupported canary event type")
@@ -282,6 +361,9 @@ class CanaryVerifier:
         }
         payload["evidence_hash"] = digest(payload)
         self.recorder.append(f"canary.{event_type}", payload)
+        certificate = self._emit_denial_certificate(claims, payload, request, effect_state)
+        if certificate is not None:
+            payload = {**payload, "denial_certificate_id": certificate["certificate"]["certificate_id"]}
         return payload
 
     def redeem(
@@ -291,6 +373,7 @@ class CanaryVerifier:
         *,
         representation: Mapping[str, Any] | None = None,
         now_ms: int | None = None,
+        effect_state: str = "denied-before-effect",
     ) -> None:
         self.record_interaction(
             "redemption",
@@ -298,6 +381,7 @@ class CanaryVerifier:
             request=request,
             representation=representation,
             now_ms=now_ms,
+            effect_state=effect_state,
         )
         raise CanaryError("canary capabilities are non-effect tripwires and cannot be redeemed")
 
