@@ -118,6 +118,7 @@ def main() -> int:
         "started_at_unix_ms": int(started * 1_000),
         "ended_at_unix_ms": int(ended * 1_000),
         "passed": all_passed,
+        "overall_status": "pass-with-unavailable-checks" if formal_tlc == "skipped" else ("pass" if all_passed else "fail"),
         "suite_results": results,
         "policy_sizing_metrics": {
             "overprovisioned_control": broad,
@@ -125,8 +126,10 @@ def main() -> int:
             "note": "Observed invocation is a proxy, not proof of minimum necessary authority.",
         },
         "formal_model_check": formal_tlc,
+        "formal_model_status": "structural-only" if formal_tlc == "skipped" else formal_tlc,
         "hardware_in_the_loop": "not-run-no-hardware",
-        "passed_invariants": [f"EH-{index}" for index in range(1, 11)],
+        "tested_invariants": [f"EH-{index}" for index in range(1, 12)],
+        "formally_checked_invariants": [] if formal_tlc == "skipped" else [f"EH-{index}" for index in range(1, 12)],
         "violated_invariants": [],
         "indeterminate_outcomes": [
             "TLC was unavailable" if formal_tlc == "skipped" else None,
@@ -154,9 +157,10 @@ def main() -> int:
 
 - Source revision: `{revision}`
 - Dirty tree at start: `{str(dirty).lower()}`
-- Overall result: `{'PASS' if all_passed else 'FAIL'}`
-- TLC: `{formal_tlc}`
-- Hardware in the loop: `not run — no hardware available`
+- Deterministic available checks: `{'PASS' if all_passed else 'FAIL'}`
+- Overall status: `{'PASS WITH UNAVAILABLE CHECKS' if formal_tlc == 'skipped' else ('PASS' if all_passed else 'FAIL')}`
+- TLC: `{'structural-only (TLC unavailable)' if formal_tlc == 'skipped' else 'executed and passed'}`
+- Hardware in the loop: `not run - no hardware available`
 
 | Evaluation | Result | Tests | Milliseconds |
 |---|---:|---:|---:|

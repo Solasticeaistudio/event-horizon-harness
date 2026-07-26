@@ -151,7 +151,7 @@ Report plausible containment bypasses privately before publishing details.
 
 ## Current limitations
 
-The default execution path is process separation, not a production microVM. TPM fixtures and `swtpm` do not establish hardware provenance. Signing and evidence mutations are authenticated, but their development keys, services, and storage remain under one host account. The remote replay protocol has authenticated Python and TypeScript clients, signed checkpoints, explicit epochs, and a single-writer reference service; no consensus-backed multi-host deployment or old-leader fencing is included. Tests are project-authored and automated, and no external audit has occurred.
+The default execution path is process separation, not a production microVM. TPM fixtures and `swtpm` do not establish hardware provenance. The hardware-failsafe component is a simulator only. The optional adaptive adversary is a bounded controller-side interface, not a completed hostile-cell model campaign. Literature fixtures are metadata-only and pending human review. Signing and evidence mutations are authenticated, but their development keys, services, and storage remain under one host account. The remote replay protocol has authenticated Python and TypeScript clients, signed checkpoints, explicit epochs, and a single-writer reference service; no consensus-backed multi-host deployment or old-leader fencing is included. Tests are project-authored and automated, and no external audit has occurred.
 
 These are active limitations, not deployment footnotes. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
